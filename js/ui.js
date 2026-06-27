@@ -282,7 +282,6 @@ const UI = (() => {
       const full = health >= (i + 1) * 2;
       const half = !full && health > i * 2;
       heart.className = `heart ${full ? 'full' : half ? 'half' : 'empty'}`;
-      heart.textContent = full ? '❤' : half ? '❤' : '♡';
       healthEl.appendChild(heart);
     }
   }
@@ -293,10 +292,17 @@ const UI = (() => {
     for (let i = 0; i < Math.ceil(maxHunger / 2); i++) {
       const drum = document.createElement('span');
       const full = hunger >= (i + 1) * 2;
-      drum.className = `hunger-icon ${full ? 'full' : 'empty'}`;
-      drum.textContent = full ? '🍗' : '○';
+      const half = !full && hunger > i * 2;
+      drum.className = `hunger-icon ${full ? 'full' : half ? 'half' : 'empty'}`;
       hungerEl.appendChild(drum);
     }
+  }
+
+  function updateXP(level, frac) {
+    const lvlEl = document.getElementById('xp-level');
+    const fillEl = document.getElementById('xp-fill');
+    if (lvlEl) lvlEl.textContent = level > 0 ? String(level) : '';
+    if (fillEl) fillEl.style.width = Math.max(0, Math.min(1, frac)) * 100 + '%';
   }
 
   function updateDebug(player, world, fps) {
@@ -402,7 +408,7 @@ const UI = (() => {
 
   return {
     init, updateHotbar, updateInventory, toggleInventory,
-    updateHealth, updateHunger, updateDebug, updateBreakOverlay,
+    updateHealth, updateHunger, updateXP, updateDebug, updateBreakOverlay,
     updateTime, togglePause, showDeath, hideDeath, addChatMessage,
     drawItemIcon, updateCrafting
   };

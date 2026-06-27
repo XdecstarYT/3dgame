@@ -24,6 +24,8 @@ class Game {
     this._invuln = 0;
     this._autosave = 0;
     this._loaded = false;
+    this.level = 0;
+    this.xp = 0;
 
     this.material = null;
     this.waterMaterial = null;
@@ -141,6 +143,16 @@ class Game {
     UI.init(this.inventory);
     UI.updateHealth(this.health, this.maxHealth);
     UI.updateHunger(this.hunger, this.maxHunger);
+    UI.updateXP(this.level, this._xpFrac());
+  }
+
+  _xpNeed() { return 10 + this.level * 4; }
+  _xpFrac() { return this.xp / this._xpNeed(); }
+  addXp(n) {
+    this.xp += n;
+    let need = this._xpNeed();
+    while (this.xp >= need) { this.xp -= need; this.level++; need = this._xpNeed(); AudioManager.playSound('item_pickup'); }
+    UI.updateXP(this.level, this.xp / need);
   }
 
   _setupEvents() {

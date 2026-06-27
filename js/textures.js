@@ -1,642 +1,414 @@
 'use strict';
 
-// Procedural texture generation - creates a texture atlas resembling Minecraft's pixel art
+// Procedural texture atlas drawn to closely resemble Minecraft's 16x16 block art.
 const TextureAtlas = (() => {
-  const TILE = 16;       // pixels per tile
-  const COLS = 8;        // tiles per row in atlas
+  const TILE = 16;
+  const COLS = 8;
   const TOTAL_TILES = 51;
   const ROWS = Math.ceil(TOTAL_TILES / COLS);
   const ATLAS_W = TILE * COLS;
   const ATLAS_H = TILE * ROWS;
 
-  // Seeded RNG for deterministic patterns
   function seededRng(seed) {
-    let s = seed;
-    return () => { s = (s * 1664525 + 1013904223) & 0xFFFFFFFF; return (s >>> 0) / 0xFFFFFFFF; };
+    let s = seed >>> 0;
+    return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 0xFFFFFFFF; };
   }
+  const ri = (rng, a, b) => Math.floor(rng() * (b - a + 1)) + a;
+  const nv = (rng, base, range) => Math.max(0, Math.min(255, base + Math.floor((rng() - 0.5) * 2 * range)));
 
-  // Random int in [min, max]
-  function ri(rng, min, max) { return Math.floor(rng() * (max - min + 1)) + min; }
-
-  // Noise-based pixel variation
-  function noiseVariant(rng, base, range) {
-    return Math.max(0, Math.min(255, base + Math.floor((rng() - 0.5) * 2 * range)));
+  function drawTile(ctx, tileIdx, fn) {
+    const ox = (tileIdx % COLS) * TILE, oy = Math.floor(tileIdx / COLS) * TILE;
+    ctx.save(); ctx.translate(ox, oy); fn(ctx, TILE); ctx.restore();
   }
-
-  function rgba(r, g, b, a = 255) { return [r, g, b, a]; }
-
-  // Draw to canvas at tile slot [col, row]
-  function drawTile(ctx, tileIdx, drawFn) {
-    const col = tileIdx % COLS;
-    const row = Math.floor(tileIdx / COLS);
-    const ox = col * TILE, oy = row * TILE;
-    ctx.save();
-    ctx.translate(ox, oy);
-    drawFn(ctx, TILE);
-    ctx.restore();
-  }
-
-  function fillPixels(ctx, pixels) {
-    // pixels: array of {x, y, r, g, b, a}
-    pixels.forEach(({ x, y, r, g, b, a = 255 }) => {
-      ctx.fillStyle = `rgba(${r},${g},${b},${a / 255})`;
-      ctx.fillRect(x, y, 1, 1);
-    });
-  }
-
-  function solidColor(ctx, size, r, g, b, seed = 0, variation = 10) {
+  function px(ctx, x, y, r, g, b, a) { ctx.fillStyle = `rgba(${r},${g},${b},${a === undefined ? 1 : a})`; ctx.fillRect(x, y, 1, 1); }
+  function noiseFill(ctx, s, r, g, b, range, seed) {
     const rng = seededRng(seed);
-    const pixels = [];
-    for (let y = 0; y < size; y++) {
-      for (let x = 0; x < size; x++) {
-        pixels.push({
-          x, y,
-          r: noiseVariant(rng, r, variation),
-          g: noiseVariant(rng, g, variation),
-          b: noiseVariant(rng, b, variation),
-        });
-      }
-    }
-    fillPixels(ctx, pixels);
+    for (let y = 0; y < s; y++) for (let x = 0; x < s; x++) px(ctx, x, y, nv(rng, r, range), nv(rng, g, range), nv(rng, b, range));
   }
+  function clear(ctx, s) { ctx.clearRect(0, 0, s, s); }
 
-  function drawGrassTop(ctx, size) {
-    const rng = seededRng(1);
-    for (let y = 0; y < size; y++) {
-      for (let x = 0; x < size; x++) {
-        const v = noiseVariant(rng, 0, 20);
-        ctx.fillStyle = `rgb(${95+v},${148+v},${65+v})`;
-        ctx.fillRect(x, y, 1, 1);
-      }
-    }
-    // small grass blades
-    for (let i = 0; i < 4; i++) {
-      ctx.fillStyle = '#5a9010';
-      ctx.fillRect(ri(seededRng(i*7), 1, 14), 0, 1, ri(seededRng(i*13), 1, 3));
-    }
-  }
-
-  function drawGrassSide(ctx, size) {
-    const rng = seededRng(2);
-    // top 3 pixels: green
-    for (let y = 0; y < 3; y++) {
-      for (let x = 0; x < size; x++) {
-        const v = noiseVariant(rng, 0, 15);
-        ctx.fillStyle = `rgb(${95+v},${148+v},${65+v})`;
-        ctx.fillRect(x, y, 1, 1);
-      }
-    }
-    // rest: dirt
-    const drng = seededRng(20);
-    for (let y = 3; y < size; y++) {
-      for (let x = 0; x < size; x++) {
-        ctx.fillStyle = `rgb(${noiseVariant(drng, 134, 15)},${noiseVariant(drng, 96, 12)},${noiseVariant(drng, 67, 10)})`;
-        ctx.fillRect(x, y, 1, 1);
-      }
-    }
-  }
-
-  function drawDirt(ctx, size) {
-    const rng = seededRng(3);
-    for (let y = 0; y < size; y++) {
-      for (let x = 0; x < size; x++) {
-        ctx.fillStyle = `rgb(${noiseVariant(rng,134,18)},${noiseVariant(rng,96,14)},${noiseVariant(rng,67,12)})`;
-        ctx.fillRect(x, y, 1, 1);
-      }
-    }
-    // pebbles
-    const pr = seededRng(99);
-    for (let i = 0; i < 3; i++) {
-      const px = ri(pr, 1, 13), py = ri(pr, 1, 13);
-      ctx.fillStyle = 'rgba(80,60,40,0.4)';
-      ctx.fillRect(px, py, 2, 1);
-    }
-  }
-
-  function drawStone(ctx, size) {
-    const rng = seededRng(4);
-    for (let y = 0; y < size; y++) {
-      for (let x = 0; x < size; x++) {
-        ctx.fillStyle = `rgb(${noiseVariant(rng,128,20)},${noiseVariant(rng,128,20)},${noiseVariant(rng,128,20)})`;
-        ctx.fillRect(x, y, 1, 1);
-      }
-    }
-    // cracks
-    ctx.fillStyle = 'rgba(60,60,60,0.5)';
-    ctx.fillRect(2, 5, 4, 1); ctx.fillRect(10, 10, 3, 1); ctx.fillRect(6, 2, 1, 3);
-  }
-
-  function drawSand(ctx, size) {
-    const rng = seededRng(5);
-    for (let y = 0; y < size; y++) {
-      for (let x = 0; x < size; x++) {
-        ctx.fillStyle = `rgb(${noiseVariant(rng,219,15)},${noiseVariant(rng,196,12)},${noiseVariant(rng,130,10)})`;
-        ctx.fillRect(x, y, 1, 1);
-      }
-    }
-  }
-
-  function drawWater(ctx, size) {
-    for (let y = 0; y < size; y++) {
-      for (let x = 0; x < size; x++) {
-        const wave = Math.sin(x * 0.8 + y * 0.5) * 10;
-        ctx.fillStyle = `rgba(${30},${80 + wave | 0},${190 + wave | 0},0.85)`;
-        ctx.fillRect(x, y, 1, 1);
-      }
-    }
-    // shimmer
-    ctx.fillStyle = 'rgba(150,210,255,0.4)';
-    ctx.fillRect(2, 3, 4, 1); ctx.fillRect(10, 8, 3, 1);
-  }
-
-  function drawLogSide(ctx, size) {
-    const rng = seededRng(7);
-    for (let y = 0; y < size; y++) {
-      for (let x = 0; x < size; x++) {
-        const edge = (x === 0 || x === size-1) ? -20 : 0;
-        ctx.fillStyle = `rgb(${noiseVariant(rng,100+edge,10)},${noiseVariant(rng,70+edge,8)},${noiseVariant(rng,40+edge,8)})`;
-        ctx.fillRect(x, y, 1, 1);
-      }
-    }
-    // bark lines
-    ctx.fillStyle = 'rgba(60,40,20,0.3)';
-    for (let y = 2; y < size; y += 4) ctx.fillRect(0, y, size, 1);
-  }
-
-  function drawLogTop(ctx, size) {
-    const rng = seededRng(8);
-    // rings
-    for (let y = 0; y < size; y++) {
-      for (let x = 0; x < size; x++) {
-        const dx = x - 7.5, dy = y - 7.5;
-        const r = Math.sqrt(dx*dx + dy*dy);
-        const ring = (r % 2.5 < 1) ? -15 : 0;
-        ctx.fillStyle = `rgb(${noiseVariant(rng,130+ring,8)},${noiseVariant(rng,95+ring,6)},${noiseVariant(rng,60+ring,6)})`;
-        ctx.fillRect(x, y, 1, 1);
-      }
-    }
-  }
-
-  function drawLeaves(ctx, size) {
-    const rng = seededRng(9);
-    for (let y = 0; y < size; y++) {
-      for (let x = 0; x < size; x++) {
-        if (rng() < 0.15) { ctx.fillStyle = 'rgba(0,0,0,0)'; ctx.fillRect(x,y,1,1); continue; }
-        ctx.fillStyle = `rgb(${noiseVariant(rng,55,15)},${noiseVariant(rng,130,20)},${noiseVariant(rng,45,15)})`;
-        ctx.fillRect(x, y, 1, 1);
-      }
-    }
-  }
-
-  function drawCobblestone(ctx, size) {
-    const rng = seededRng(10);
-    for (let y = 0; y < size; y++) {
-      for (let x = 0; x < size; x++) {
-        ctx.fillStyle = `rgb(${noiseVariant(rng,100,25)},${noiseVariant(rng,100,25)},${noiseVariant(rng,100,25)})`;
-        ctx.fillRect(x, y, 1, 1);
-      }
-    }
-    // mortar lines defining cobble shapes
-    ctx.fillStyle = 'rgba(60,60,60,0.6)';
-    ctx.fillRect(0, 0, size, 1); ctx.fillRect(0, 7, size, 1); ctx.fillRect(0, 11, size, 1);
-    ctx.fillRect(0, 0, 1, 7); ctx.fillRect(5, 0, 1, 7); ctx.fillRect(10, 0, 1, 7);
-    ctx.fillRect(3, 7, 1, 4); ctx.fillRect(8, 7, 1, 4); ctx.fillRect(13, 7, 1, 4);
-    ctx.fillRect(0, 11, 1, 5); ctx.fillRect(7, 11, 1, 5); ctx.fillRect(12, 11, 1, 5);
-  }
-
-  function drawPlanks(ctx, size) {
+  // ---------------- block textures ----------------
+  function grassTop(ctx, s) {
     const rng = seededRng(11);
-    for (let y = 0; y < size; y++) {
-      for (let x = 0; x < size; x++) {
-        const plankRow = Math.floor(y / 4);
-        const plankOff = (plankRow % 2) * 8;
-        ctx.fillStyle = `rgb(${noiseVariant(rng,165,15)},${noiseVariant(rng,115,12)},${noiseVariant(rng,65,10)})`;
-        ctx.fillRect(x, y, 1, 1);
+    for (let y = 0; y < s; y++) for (let x = 0; x < s; x++) {
+      const v = (rng() - 0.5) * 22;
+      px(ctx, x, y, 99 + v, 153 + v, 64 + v);
+    }
+    const r2 = seededRng(77);
+    for (let i = 0; i < 14; i++) px(ctx, ri(r2, 0, 15), ri(r2, 0, 15), 80, 120, 45);
+  }
+
+  function grassSide(ctx, s) {
+    // dirt base
+    noiseFill(ctx, s, 134, 96, 67, 15, 20);
+    // jagged green overlay on top
+    const rng = seededRng(33);
+    for (let x = 0; x < s; x++) {
+      const gh = 3 + ri(rng, 0, 2);
+      for (let y = 0; y < gh; y++) {
+        const v = (rng() - 0.5) * 20;
+        px(ctx, x, y, 99 + v, 153 + v, 64 + v);
       }
-    }
-    // plank dividers
-    ctx.fillStyle = 'rgba(100,70,35,0.5)';
-    ctx.fillRect(0, 3, size, 1); ctx.fillRect(0, 7, size, 1); ctx.fillRect(0, 11, size, 1);
-    ctx.fillRect(7, 0, 1, 4); ctx.fillRect(3, 4, 1, 4); ctx.fillRect(11, 8, 1, 4);
-  }
-
-  function drawGlass(ctx, size) {
-    // Mostly transparent with edge frame
-    ctx.fillStyle = 'rgba(160,210,240,0.3)';
-    ctx.fillRect(0, 0, size, size);
-    ctx.fillStyle = 'rgba(255,255,255,0.6)';
-    ctx.fillRect(0, 0, size, 1); ctx.fillRect(0, size-1, size, 1);
-    ctx.fillRect(0, 0, 1, size); ctx.fillRect(size-1, 0, 1, size);
-    ctx.fillStyle = 'rgba(200,235,255,0.4)';
-    ctx.fillRect(2, 2, 5, 5); ctx.fillRect(9, 9, 5, 5);
-  }
-
-  function drawOre(ctx, size, sr, sg, sb, seed) {
-    drawStone(ctx, size);
-    const rng = seededRng(seed);
-    ctx.fillStyle = `rgb(${sr},${sg},${sb})`;
-    for (let i = 0; i < 6; i++) {
-      const x = ri(rng, 1, 13), y = ri(rng, 1, 13);
-      ctx.fillRect(x, y, ri(rng, 1, 2), ri(rng, 1, 2));
+      // darker green fringe pixel
+      px(ctx, x, gh, 70, 110, 45, 0.9);
     }
   }
 
-  function drawBedrock(ctx, size) {
+  function dirt(ctx, s) {
+    noiseFill(ctx, s, 134, 96, 67, 16, 3);
+    const rng = seededRng(99);
+    for (let i = 0; i < 5; i++) px(ctx, ri(rng, 0, 15), ri(rng, 0, 15), 110, 78, 52);
+  }
+
+  function stone(ctx, s) {
+    noiseFill(ctx, s, 127, 127, 127, 14, 4);
+    const rng = seededRng(40);
+    for (let i = 0; i < 6; i++) px(ctx, ri(rng, 1, 14), ri(rng, 1, 14), 95, 95, 95);
+    for (let i = 0; i < 4; i++) px(ctx, ri(rng, 1, 14), ri(rng, 1, 14), 150, 150, 150);
+  }
+
+  function sand(ctx, s) {
+    noiseFill(ctx, s, 219, 203, 150, 11, 5);
+    const rng = seededRng(55);
+    for (let i = 0; i < 5; i++) px(ctx, ri(rng, 0, 15), ri(rng, 0, 15), 200, 182, 130);
+  }
+
+  function water(ctx, s) {
+    for (let y = 0; y < s; y++) for (let x = 0; x < s; x++) {
+      const w = Math.sin(x * 0.7 + y * 0.4) * 12;
+      px(ctx, x, y, 40, 90 + w, 200 + w * 0.5);
+    }
+  }
+
+  function logSide(ctx, s) {
+    noiseFill(ctx, s, 102, 76, 46, 8, 7);
+    // vertical bark streaks
+    const rng = seededRng(71);
+    for (let x = 0; x < s; x++) {
+      if (rng() < 0.35) for (let y = 0; y < s; y++) px(ctx, x, y, 84, 60, 34, 0.5);
+    }
+    // edge rim
+    for (let y = 0; y < s; y++) { px(ctx, 0, y, 70, 50, 28); px(ctx, 15, y, 70, 50, 28); }
+    // couple knots
+    px(ctx, 5, 6, 60, 42, 24); px(ctx, 10, 11, 60, 42, 24);
+  }
+
+  function logTop(ctx, s) {
+    const rng = seededRng(8);
+    for (let y = 0; y < s; y++) for (let x = 0; x < s; x++) {
+      const dx = x - 7.5, dy = y - 7.5, r = Math.sqrt(dx*dx + dy*dy);
+      const ring = (r % 2.4 < 1.1) ? -16 : 0;
+      px(ctx, x, y, nv(rng, 150 + ring, 8), nv(rng, 112 + ring, 6), nv(rng, 70 + ring, 6));
+    }
+    px(ctx, 7, 7, 120, 88, 52); px(ctx, 8, 8, 120, 88, 52);
+  }
+
+  function leaves(ctx, s) {
+    const rng = seededRng(9);
+    for (let y = 0; y < s; y++) for (let x = 0; x < s; x++) {
+      if (rng() < 0.12) { continue; } // transparent gaps
+      const v = (rng() - 0.5) * 36;
+      px(ctx, x, y, 48 + v, 110 + v, 40 + v);
+    }
+    const r2 = seededRng(90);
+    for (let i = 0; i < 10; i++) px(ctx, ri(r2, 0, 15), ri(r2, 0, 15), 35, 80, 28);
+  }
+
+  function cobblestone(ctx, s) {
+    noiseFill(ctx, s, 79, 79, 79, 6, 10); // mortar base
+    const stones = [
+      [0,0,7,6],[8,0,7,6],
+      [0,7,4,4],[5,7,5,4],[11,7,5,4],
+      [0,12,7,4],[8,12,7,4],
+    ];
+    let seed = 200;
+    for (const [x, y, w, h] of stones) {
+      const rng = seededRng(seed++);
+      const g = ri(rng, 100, 150);
+      for (let yy = y; yy < y + h && yy < 16; yy++) for (let xx = x; xx < x + w && xx < 16; xx++) {
+        px(ctx, xx, yy, nv(rng, g, 12), nv(rng, g, 12), nv(rng, g, 12));
+      }
+      // light top edge, dark bottom edge
+      for (let xx = x; xx < x + w && xx < 16; xx++) { px(ctx, xx, y, g + 28, g + 28, g + 28, 0.6); px(ctx, xx, y + h - 1, 55, 55, 55, 0.6); }
+      for (let yy = y; yy < y + h && yy < 16; yy++) px(ctx, x, yy, g + 20, g + 20, g + 20, 0.4);
+    }
+  }
+
+  function planks(ctx, s) {
+    const rng = seededRng(11);
+    for (let y = 0; y < s; y++) for (let x = 0; x < s; x++) {
+      const v = (rng() - 0.5) * 18;
+      px(ctx, x, y, 178 + v, 134 + v, 78 + v);
+    }
+    // plank seams
+    for (const y of [3, 7, 11, 15]) for (let x = 0; x < s; x++) px(ctx, x, y, 120, 86, 46, 0.8);
+    // grain lines
+    const r2 = seededRng(22);
+    for (let row = 0; row < 4; row++) for (let i = 0; i < 3; i++) {
+      const y = row * 4 + ri(r2, 0, 2), x0 = ri(r2, 0, 8);
+      for (let x = x0; x < x0 + ri(r2, 3, 6) && x < 16; x++) px(ctx, x, y, 150, 110, 62, 0.5);
+    }
+    // staggered vertical end seams
+    px(ctx, 8, 0, 120, 86, 46); px(ctx, 8, 1, 120, 86, 46); px(ctx, 8, 2, 120, 86, 46);
+    px(ctx, 4, 4, 120, 86, 46); px(ctx, 4, 5, 120, 86, 46); px(ctx, 12, 8, 120, 86, 46); px(ctx, 12, 9, 120, 86, 46);
+  }
+
+  function glass(ctx, s) {
+    clear(ctx, s);
+    // frame
+    for (let i = 0; i < s; i++) { px(ctx, i, 0, 220, 235, 245, 0.95); px(ctx, i, 15, 200, 220, 235, 0.95); px(ctx, 0, i, 215, 232, 244, 0.95); px(ctx, 15, i, 200, 220, 235, 0.95); }
+    // light diagonal streaks
+    for (let i = 2; i < 9; i++) px(ctx, i, i, 235, 245, 255, 0.5);
+    px(ctx, 11, 4, 235, 245, 255, 0.5); px(ctx, 12, 5, 235, 245, 255, 0.4);
+  }
+
+  function ore(ctx, s, blobColor, drawSeed) {
+    stone(ctx, s);
+    const [r, g, b] = blobColor;
+    const rng = seededRng(drawSeed);
+    const blobs = 4 + ri(rng, 0, 2);
+    for (let i = 0; i < blobs; i++) {
+      const bx = ri(rng, 2, 12), by = ri(rng, 2, 12), w = ri(rng, 2, 3), h = ri(rng, 2, 3);
+      for (let yy = by; yy < by + h; yy++) for (let xx = bx; xx < bx + w; xx++) {
+        const v = (rng() - 0.5) * 30;
+        px(ctx, xx, yy, r + v, g + v, b + v);
+      }
+      // dark outline
+      for (let xx = bx - 1; xx <= bx + w; xx++) { px(ctx, xx, by - 1, r*0.4, g*0.4, b*0.4, 0.5); px(ctx, xx, by + h, r*0.4, g*0.4, b*0.4, 0.5); }
+    }
+  }
+
+  function bedrock(ctx, s) {
     const rng = seededRng(15);
-    for (let y = 0; y < size; y++) {
-      for (let x = 0; x < size; x++) {
-        ctx.fillStyle = `rgb(${noiseVariant(rng,50,20)},${noiseVariant(rng,50,20)},${noiseVariant(rng,50,20)})`;
-        ctx.fillRect(x, y, 1, 1);
-      }
+    for (let y = 0; y < s; y += 2) for (let x = 0; x < s; x += 2) {
+      const g = ri(rng, 35, 95);
+      for (let yy = 0; yy < 2; yy++) for (let xx = 0; xx < 2; xx++) px(ctx, x + xx, y + yy, g, g, g);
     }
   }
 
-  function drawGravel(ctx, size) {
-    const rng = seededRng(16);
-    for (let y = 0; y < size; y++) {
-      for (let x = 0; x < size; x++) {
-        ctx.fillStyle = `rgb(${noiseVariant(rng,120,30)},${noiseVariant(rng,110,28)},${noiseVariant(rng,105,25)})`;
-        ctx.fillRect(x, y, 1, 1);
-      }
-    }
+  function gravel(ctx, s) {
+    noiseFill(ctx, s, 122, 112, 105, 24, 16);
+    const rng = seededRng(61);
+    for (let i = 0; i < 8; i++) { const x = ri(rng, 0, 14), y = ri(rng, 0, 14); px(ctx, x, y, 80, 74, 70); px(ctx, x + 1, y, 150, 144, 138); }
   }
 
-  function drawGlowstone(ctx, size) {
-    const rng = seededRng(17);
-    for (let y = 0; y < size; y++) {
-      for (let x = 0; x < size; x++) {
-        const glow = Math.sin(x*0.7)*10 + Math.cos(y*0.9)*10;
-        ctx.fillStyle = `rgb(${noiseVariant(rng, 220+glow|0, 15)},${noiseVariant(rng,170,12)},${noiseVariant(rng,50,10)})`;
-        ctx.fillRect(x, y, 1, 1);
-      }
-    }
+  function glowstone(ctx, s) {
+    noiseFill(ctx, s, 200, 158, 70, 16, 17);
+    const rng = seededRng(33);
+    for (let i = 0; i < 12; i++) px(ctx, ri(rng, 0, 15), ri(rng, 0, 15), 255, 224, 120);
   }
 
-  function drawObsidian(ctx, size) {
+  function obsidian(ctx, s) {
+    noiseFill(ctx, s, 22, 18, 32, 8, 18);
     const rng = seededRng(18);
-    for (let y = 0; y < size; y++) {
-      for (let x = 0; x < size; x++) {
-        ctx.fillStyle = `rgb(${noiseVariant(rng,20,10)},${noiseVariant(rng,15,8)},${noiseVariant(rng,30,12)})`;
-        ctx.fillRect(x, y, 1, 1);
-      }
+    for (let i = 0; i < 8; i++) px(ctx, ri(rng, 0, 15), ri(rng, 0, 15), 74, 44, 106);
+    for (let i = 0; i < 4; i++) px(ctx, ri(rng, 0, 15), ri(rng, 0, 15), 110, 80, 150, 0.7);
+  }
+
+  function sandstoneTop(ctx, s) { noiseFill(ctx, s, 222, 206, 152, 8, 21); for (let i=0;i<s;i++){px(ctx,i,0,200,184,130,0.5);px(ctx,i,15,200,184,130,0.5);} }
+  function sandstoneSide(ctx, s) {
+    noiseFill(ctx, s, 216, 200, 146, 8, 22);
+    for (const y of [4, 9, 13]) for (let x = 0; x < s; x++) px(ctx, x, y, 188, 168, 110, 0.7);
+    // top cap band
+    for (let x = 0; x < s; x++) { px(ctx, x, 0, 228, 214, 162); px(ctx, x, 1, 224, 210, 158); }
+  }
+
+  function snow(ctx, s) { noiseFill(ctx, s, 242, 244, 250, 6, 23); }
+
+  function ice(ctx, s) {
+    for (let y = 0; y < s; y++) for (let x = 0; x < s; x++) {
+      const w = Math.sin(x * 0.5) * 8 + Math.cos(y * 0.5) * 8;
+      px(ctx, x, y, 150 + w, 192 + w, 226 + w, 0.92);
     }
-    // purple sheen
-    ctx.fillStyle = 'rgba(80,0,120,0.3)';
-    ctx.fillRect(3, 3, 4, 4); ctx.fillRect(9, 9, 5, 5);
+    px(ctx, 3, 4, 210, 232, 250, 0.7); px(ctx, 10, 9, 210, 232, 250, 0.7); px(ctx, 6, 12, 200, 226, 248, 0.6);
   }
 
-  function drawSandstoneTop(ctx, size) { drawSand(ctx, size); ctx.fillStyle = 'rgba(160,140,90,0.3)'; ctx.fillRect(0,0,size,1); ctx.fillRect(0,size-1,size,1); }
-  function drawSandstoneSide(ctx, size) {
-    const rng = seededRng(22);
-    for (let y = 0; y < size; y++) {
-      for (let x = 0; x < size; x++) {
-        ctx.fillStyle = `rgb(${noiseVariant(rng,200,10)},${noiseVariant(rng,175,10)},${noiseVariant(rng,100,8)})`;
-        ctx.fillRect(x, y, 1, 1);
-      }
-    }
-    ctx.fillStyle = 'rgba(150,120,60,0.4)';
-    ctx.fillRect(0,4,size,1); ctx.fillRect(0,9,size,1); ctx.fillRect(0,13,size,1);
-    // hieroglyph-like marks
-    ctx.fillStyle = 'rgba(140,110,50,0.5)';
-    ctx.fillRect(3,6,2,2); ctx.fillRect(10,10,3,1);
+  function craftingTop(ctx, s) {
+    planks(ctx, s);
+    ctx.fillStyle = 'rgba(70,46,18,0.85)'; ctx.fillRect(1, 1, 14, 14);
+    // 3x3 grid
+    ctx.fillStyle = '#a87a32';
+    for (let i = 0; i <= 3; i++) { ctx.fillRect(2 + i * 4, 2, 1, 12); ctx.fillRect(2, 2 + i * 4, 12, 1); }
   }
-  function drawSandstoneBottom(ctx, size) { drawSand(ctx, size); }
+  function craftingSide(ctx, s) { planks(ctx, s); for (let y=0;y<s;y++){px(ctx,0,y,120,86,46);px(ctx,15,y,120,86,46);} px(ctx,3,3,90,60,30);px(ctx,11,7,90,60,30); }
 
-  function drawSnow(ctx, size) {
-    const rng = seededRng(23);
-    for (let y = 0; y < size; y++) {
-      for (let x = 0; x < size; x++) {
-        ctx.fillStyle = `rgb(${noiseVariant(rng,240,8)},${noiseVariant(rng,242,8)},${noiseVariant(rng,248,6)})`;
-        ctx.fillRect(x, y, 1, 1);
-      }
-    }
+  function furnaceFront(ctx, s) {
+    stone(ctx, s);
+    // frame
+    for (let i=0;i<s;i++){px(ctx,i,0,90,90,90);px(ctx,i,15,90,90,90);px(ctx,0,i,90,90,90);px(ctx,15,i,90,90,90);}
+    // opening
+    ctx.fillStyle = '#1a1a1a'; ctx.fillRect(4, 4, 8, 6);
+    ctx.fillStyle = '#ff7a18'; ctx.fillRect(5, 6, 6, 3);
+    ctx.fillStyle = '#ffd24a'; ctx.fillRect(6, 7, 4, 1);
+    // bottom slot
+    ctx.fillStyle = '#5a5a5a'; ctx.fillRect(5, 12, 6, 2);
   }
 
-  function drawIce(ctx, size) {
-    for (let y = 0; y < size; y++) {
-      for (let x = 0; x < size; x++) {
-        const v = Math.sin(x*0.5)*8 + Math.cos(y*0.5)*8;
-        ctx.fillStyle = `rgba(${140+v|0},${185+v|0},${220+v|0},0.88)`;
-        ctx.fillRect(x, y, 1, 1);
-      }
-    }
-    ctx.fillStyle = 'rgba(200,230,255,0.4)';
-    ctx.fillRect(2,2,3,1); ctx.fillRect(10,10,4,1);
+  function torch(ctx, s) {
+    clear(ctx, s);
+    ctx.fillStyle = '#8a6a2a'; ctx.fillRect(7, 6, 2, 9);
+    ctx.fillStyle = '#a07c34'; ctx.fillRect(7, 10, 1, 5);
+    ctx.fillStyle = '#ffd24a'; ctx.fillRect(6, 3, 4, 3);
+    ctx.fillStyle = '#fff2a0'; ctx.fillRect(7, 2, 2, 2);
+    ctx.fillStyle = 'rgba(255,180,40,0.5)'; ctx.fillRect(6, 1, 4, 1);
   }
 
-  function drawCraftingTop(ctx, size) {
-    drawPlanks(ctx, size);
-    ctx.fillStyle = 'rgba(80,50,20,0.7)';
-    ctx.fillRect(1,1,14,14);
-    ctx.fillStyle = '#a0600a';
-    ctx.fillRect(4,4,8,1); ctx.fillRect(4,4,1,8); ctx.fillRect(4,11,8,1); ctx.fillRect(11,4,1,8);
-    ctx.fillRect(7,1,1,14); ctx.fillRect(1,7,14,1);
+  function flower(ctx, s, petal) {
+    clear(ctx, s);
+    ctx.fillStyle = '#2f7d1e'; ctx.fillRect(7, 8, 2, 8);
+    ctx.fillStyle = '#3f9d2a'; ctx.fillRect(5, 11, 2, 2); ctx.fillRect(9, 13, 2, 2);
+    ctx.fillStyle = petal;
+    ctx.fillRect(6, 3, 4, 4); ctx.fillRect(5, 4, 6, 2); ctx.fillRect(7, 2, 2, 6);
+    ctx.fillStyle = '#ffe23a'; ctx.fillRect(7, 4, 2, 2);
   }
 
-  function drawCraftingSide(ctx, size) {
-    drawPlanks(ctx, size);
-    ctx.fillStyle = 'rgba(80,50,20,0.4)';
-    ctx.fillRect(0,0,1,size); ctx.fillRect(size-1,0,1,size);
-  }
-
-  function drawFurnaceFront(ctx, size) {
-    solidColor(ctx, size, 100, 100, 100, 100, 20);
-    ctx.fillStyle = '#222';
-    ctx.fillRect(4, 4, 8, 5);
-    ctx.fillStyle = '#ff6600';
-    ctx.fillRect(5, 5, 6, 3);
-    ctx.fillStyle = '#ffaa00';
-    ctx.fillRect(6, 6, 4, 1);
-    // furnace door handle
-    ctx.fillStyle = '#888';
-    ctx.fillRect(5, 11, 6, 2); ctx.fillRect(7, 10, 2, 1);
-  }
-
-  function drawTorch(ctx, size) {
-    ctx.fillStyle = 'rgba(0,0,0,0)'; ctx.fillRect(0,0,size,size);
-    ctx.fillStyle = '#8B6914';
-    ctx.fillRect(7, 4, 2, 12);
-    ctx.fillStyle = '#ff8800';
-    ctx.fillRect(6, 2, 4, 4);
-    ctx.fillStyle = '#ffdd00';
-    ctx.fillRect(7, 1, 2, 2);
-    ctx.fillStyle = 'rgba(255,220,0,0.5)';
-    ctx.fillRect(6, 0, 4, 2);
-  }
-
-  function drawFlower(ctx, size, color) {
-    ctx.fillStyle = 'rgba(0,0,0,0)'; ctx.fillRect(0,0,size,size);
-    // stem
-    ctx.fillStyle = '#3a7a10'; ctx.fillRect(7, 8, 2, 8);
-    ctx.fillStyle = color;
-    ctx.fillRect(5, 4, 6, 2); ctx.fillRect(4, 6, 8, 2);
-    ctx.fillRect(6, 2, 4, 2); ctx.fillRect(5, 8, 6, 2);
-    ctx.fillStyle = '#ffff00';
-    ctx.fillRect(6, 5, 4, 2);
-  }
-
-  function drawTallGrass(ctx, size) {
-    ctx.fillStyle = 'rgba(0,0,0,0)'; ctx.fillRect(0,0,size,size);
+  function tallGrass(ctx, s) {
+    clear(ctx, s);
     const rng = seededRng(27);
-    const colors = ['#4a8a20','#5a9a28','#3a7a18'];
-    for (let i = 0; i < 5; i++) {
-      ctx.fillStyle = colors[i % 3];
-      const x = ri(rng, 2, 12);
-      for (let y = 16; y > ri(rng, 4, 8); y--) {
-        ctx.fillRect(x + Math.floor(Math.sin(y * 0.5) * 1.5), y, 1, 1);
-      }
+    const cols = ['#4f9a28', '#5fae30', '#3f8a20'];
+    for (let i = 0; i < 6; i++) {
+      ctx.fillStyle = cols[i % 3];
+      const x = ri(rng, 2, 13);
+      for (let y = 15; y > ri(rng, 5, 9); y--) ctx.fillRect(x + Math.round(Math.sin(y * 0.5) * 1.3), y, 1, 1);
     }
   }
 
-  function drawNetherrack(ctx, size) {
+  function netherrack(ctx, s) {
+    noiseFill(ctx, s, 110, 38, 38, 18, 28);
     const rng = seededRng(28);
-    for (let y = 0; y < size; y++) {
-      for (let x = 0; x < size; x++) {
-        ctx.fillStyle = `rgb(${noiseVariant(rng,100,20)},${noiseVariant(rng,20,10)},${noiseVariant(rng,20,10)})`;
-        ctx.fillRect(x, y, 1, 1);
+    for (let i = 0; i < 8; i++) px(ctx, ri(rng, 0, 15), ri(rng, 0, 15), 70, 20, 20);
+  }
+
+  function bookshelf(ctx, s) {
+    planks(ctx, s);
+    // top & bottom plank frame
+    ctx.fillStyle = '#b4863f'; ctx.fillRect(0, 0, 16, 2); ctx.fillRect(0, 14, 16, 2);
+    const palette = ['#b23636', '#2f6fbf', '#2f9f4f', '#b58a2a', '#8a3fbf', '#c05a2a'];
+    let p = 0;
+    for (const y of [2, 8]) {
+      let x = 1;
+      while (x < 15) {
+        const w = 1 + (p % 2);
+        ctx.fillStyle = palette[p % palette.length];
+        ctx.fillRect(x, y, w, 5);
+        ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fillRect(x + w, y, 1, 5);
+        x += w + 1; p++;
       }
     }
   }
 
-  function drawBookshelf(ctx, size) {
-    drawPlanks(ctx, size);
-    ctx.fillStyle = '#cc2222'; for (let i=0;i<3;i++) ctx.fillRect(1+i*5, 2, 4, 5);
-    ctx.fillStyle = '#2222cc'; for (let i=0;i<2;i++) ctx.fillRect(3+i*6, 9, 4, 5);
-    ctx.fillStyle = '#118811'; ctx.fillRect(10, 3, 3, 4);
-  }
-
-  function drawBrick(ctx, size) {
-    const rng = seededRng(30);
-    for (let y = 0; y < size; y++) {
-      for (let x = 0; x < size; x++) {
-        ctx.fillStyle = `rgb(${noiseVariant(rng,160,20)},${noiseVariant(rng,60,15)},${noiseVariant(rng,55,15)})`;
-        ctx.fillRect(x, y, 1, 1);
+  function brick(ctx, s) {
+    // mortar background
+    noiseFill(ctx, s, 168, 160, 150, 6, 30);
+    const rng = seededRng(31);
+    const rows = [[0, 0], [1, 4], [0, 8], [1, 12]]; // [offset, y]
+    for (const [off, y] of rows) {
+      let x = off ? -4 : 0;
+      while (x < 16) {
+        for (let yy = y; yy < y + 3 && yy < 16; yy++) for (let xx = x; xx < x + 7 && xx < 16; xx++) {
+          if (xx < 0) continue;
+          const v = (rng() - 0.5) * 18;
+          px(ctx, xx, yy, 154 + v, 74 + v, 58 + v);
+        }
+        x += 8;
       }
     }
-    ctx.fillStyle = 'rgba(100,80,80,0.6)';
-    ctx.fillRect(0,0,size,1); ctx.fillRect(0,4,size,1); ctx.fillRect(0,8,size,1); ctx.fillRect(0,12,size,1);
-    ctx.fillRect(7,0,1,4); ctx.fillRect(3,4,1,4); ctx.fillRect(11,4,1,4); ctx.fillRect(7,8,1,4); ctx.fillRect(3,12,1,4); ctx.fillRect(11,12,1,4);
   }
 
-  function drawMossyCobble(ctx, size) {
-    drawCobblestone(ctx, size);
-    // moss patches
-    ctx.fillStyle = 'rgba(50,140,30,0.5)';
-    ctx.fillRect(2,2,3,2); ctx.fillRect(9,5,4,3); ctx.fillRect(1,11,5,3); ctx.fillRect(11,12,4,3);
+  function mossyCobble(ctx, s) {
+    cobblestone(ctx, s);
+    const rng = seededRng(36);
+    for (let i = 0; i < 26; i++) px(ctx, ri(rng, 0, 15), ri(rng, 0, 15), 60, 120, 45, 0.65);
   }
 
-  function drawTNTTop(ctx, size) {
-    solidColor(ctx, size, 200, 200, 200, 70, 20);
-    ctx.fillStyle = '#ff2222';
-    ctx.fillRect(3,3,10,10);
-    ctx.fillStyle = '#ffffff';
-    ctx.font = '5px sans-serif';
-    ctx.fillText('TNT', 2, 10);
+  function tntTop(ctx, s) { noiseFill(ctx, s, 196, 196, 196, 10, 70); ctx.fillStyle = '#b03030'; ctx.fillRect(2, 2, 12, 12); ctx.fillStyle = '#e8e8e8'; ctx.font = 'bold 6px monospace'; ctx.fillText('TNT', 2, 10); }
+  function tntBottom(ctx, s) { noiseFill(ctx, s, 120, 120, 120, 10, 72); }
+  function tntSide(ctx, s) {
+    noiseFill(ctx, s, 178, 50, 44, 10, 71);
+    ctx.fillStyle = '#e8e8e8'; ctx.fillRect(0, 5, 16, 5);
+    ctx.fillStyle = '#b03030'; ctx.font = 'bold 6px monospace'; ctx.fillText('TNT', 1, 10);
+    ctx.fillStyle = 'rgba(60,40,20,0.5)'; for (let x=0;x<16;x++){px(ctx,x,4,90,70,40,0.4);px(ctx,x,11,90,70,40,0.4);}
   }
 
-  function drawTNTSide(ctx, size) {
-    solidColor(ctx, size, 180, 30, 30, 71, 15);
-    // rope pattern
-    ctx.fillStyle = 'rgba(100,70,30,0.6)';
-    ctx.fillRect(0,5,size,1); ctx.fillRect(0,10,size,1);
-    ctx.fillRect(3,0,1,size); ctx.fillRect(12,0,1,size);
-  }
-
-  function drawTNTBottom(ctx, size) { solidColor(ctx, size, 200, 200, 200, 72, 20); }
-
-  // ---------- item icons ----------
-  function clear(ctx, size) { ctx.clearRect(0, 0, size, size); }
-
-  function drawStick(ctx, s) {
-    clear(ctx, s);
-    ctx.fillStyle = '#7a5230';
-    for (let i = 0; i < 9; i++) ctx.fillRect(10 - i, 3 + i, 2, 2);
-  }
-  function drawCoal(ctx, s) {
-    clear(ctx, s);
-    ctx.fillStyle = '#1a1a1a';
-    ctx.fillRect(4, 5, 8, 7); ctx.fillRect(5, 4, 6, 1); ctx.fillRect(3, 7, 1, 3);
-    ctx.fillStyle = '#3a3a3a';
-    ctx.fillRect(6, 6, 2, 2); ctx.fillRect(9, 8, 2, 2);
-  }
-  function drawIngot(ctx, s, r, g, b) {
-    clear(ctx, s);
-    ctx.fillStyle = `rgb(${r},${g},${b})`;
-    ctx.beginPath();
-    ctx.moveTo(4, 11); ctx.lineTo(6, 5); ctx.lineTo(12, 5); ctx.lineTo(11, 11); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = `rgba(255,255,255,0.4)`;
-    ctx.fillRect(6, 6, 5, 1);
-    ctx.fillStyle = `rgba(0,0,0,0.25)`;
-    ctx.fillRect(5, 10, 6, 1);
-  }
-  function drawDiamond(ctx, s) {
-    clear(ctx, s);
-    ctx.fillStyle = '#3fe0e0';
-    ctx.beginPath();
-    ctx.moveTo(8, 3); ctx.lineTo(13, 7); ctx.lineTo(8, 13); ctx.lineTo(3, 7); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = 'rgba(255,255,255,0.6)';
-    ctx.fillRect(7, 5, 2, 2);
-    ctx.fillStyle = 'rgba(0,80,120,0.4)';
-    ctx.fillRect(6, 9, 4, 2);
-  }
-  function drawApple(ctx, s) {
-    clear(ctx, s);
-    ctx.fillStyle = '#cc2222';
-    ctx.beginPath(); ctx.arc(8, 9, 5, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#7a4a10'; ctx.fillRect(8, 3, 1, 3);
-    ctx.fillStyle = '#2a8a2a'; ctx.fillRect(9, 4, 3, 2);
-    ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.fillRect(6, 7, 2, 2);
-  }
-  function drawBread(ctx, s) {
-    clear(ctx, s);
-    ctx.fillStyle = '#c08a40';
-    ctx.beginPath(); ctx.ellipse(8, 8, 6, 4, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#a06a28';
-    ctx.fillRect(5, 7, 1, 2); ctx.fillRect(8, 6, 1, 2); ctx.fillRect(11, 7, 1, 2);
-  }
-  function drawHandle(ctx) {
-    ctx.fillStyle = '#7a5230';
-    for (let i = 0; i < 8; i++) ctx.fillRect(5 + i, 12 - i, 2, 2);
-  }
-  function drawPickaxe(ctx, s) {
-    clear(ctx, s); drawHandle(ctx);
-    ctx.fillStyle = '#9aa0a6';
-    ctx.fillRect(3, 3, 10, 2); ctx.fillRect(3, 3, 2, 2); ctx.fillRect(11, 3, 2, 2);
-    ctx.fillRect(2, 4, 2, 2); ctx.fillRect(12, 4, 2, 2);
-  }
-  function drawAxe(ctx, s) {
-    clear(ctx, s); drawHandle(ctx);
-    ctx.fillStyle = '#9aa0a6';
-    ctx.fillRect(8, 3, 4, 6); ctx.fillRect(6, 4, 2, 4);
-  }
-  function drawShovel(ctx, s) {
-    clear(ctx, s); drawHandle(ctx);
-    ctx.fillStyle = '#9aa0a6';
-    ctx.fillRect(9, 3, 4, 4); ctx.fillRect(10, 7, 2, 1);
-  }
-  function drawSword(ctx, s) {
-    clear(ctx, s);
-    ctx.fillStyle = '#7a5230';
-    ctx.fillRect(4, 11, 4, 2); ctx.fillRect(6, 9, 3, 3);
-    ctx.fillStyle = '#caa030'; // guard
-    ctx.fillRect(7, 8, 4, 2);
-    ctx.fillStyle = '#d8dde2'; // blade
-    for (let i = 0; i < 7; i++) ctx.fillRect(9 + i, 7 - i, 2, 2);
-  }
+  // ---------------- item icons ----------------
+  function clearI(ctx, s) { ctx.clearRect(0, 0, s, s); }
+  function iStick(ctx) { clearI(ctx, 16); ctx.fillStyle = '#7a5230'; for (let i = 0; i < 9; i++) ctx.fillRect(10 - i, 3 + i, 2, 2); }
+  function iCoal(ctx) { clearI(ctx, 16); ctx.fillStyle = '#1a1a1a'; ctx.fillRect(4, 5, 8, 7); ctx.fillRect(5, 4, 6, 1); ctx.fillRect(3, 7, 1, 3); ctx.fillStyle = '#3a3a3a'; ctx.fillRect(6, 6, 2, 2); ctx.fillRect(9, 8, 2, 2); }
+  function iIngot(ctx, r, g, b) { clearI(ctx, 16); ctx.fillStyle = `rgb(${r},${g},${b})`; ctx.beginPath(); ctx.moveTo(4, 11); ctx.lineTo(6, 5); ctx.lineTo(12, 5); ctx.lineTo(11, 11); ctx.closePath(); ctx.fill(); ctx.fillStyle = 'rgba(255,255,255,0.45)'; ctx.fillRect(6, 6, 5, 1); ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.fillRect(5, 10, 6, 1); }
+  function iDiamond(ctx) { clearI(ctx, 16); ctx.fillStyle = '#3fe0e0'; ctx.beginPath(); ctx.moveTo(8, 3); ctx.lineTo(13, 7); ctx.lineTo(8, 13); ctx.lineTo(3, 7); ctx.closePath(); ctx.fill(); ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.fillRect(7, 5, 2, 2); ctx.fillStyle = 'rgba(0,80,120,0.4)'; ctx.fillRect(6, 9, 4, 2); }
+  function iApple(ctx) { clearI(ctx, 16); ctx.fillStyle = '#cc2222'; ctx.beginPath(); ctx.arc(8, 9, 5, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#7a4a10'; ctx.fillRect(8, 3, 1, 3); ctx.fillStyle = '#2a8a2a'; ctx.fillRect(9, 4, 3, 2); ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.fillRect(6, 7, 2, 2); }
+  function iBread(ctx) { clearI(ctx, 16); ctx.fillStyle = '#c08a40'; ctx.beginPath(); ctx.ellipse(8, 8, 6, 4, 0, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#a06a28'; ctx.fillRect(5, 7, 1, 2); ctx.fillRect(8, 6, 1, 2); ctx.fillRect(11, 7, 1, 2); }
+  function handle(ctx) { ctx.fillStyle = '#7a5230'; for (let i = 0; i < 8; i++) ctx.fillRect(5 + i, 12 - i, 2, 2); }
+  function iPick(ctx) { clearI(ctx, 16); handle(ctx); ctx.fillStyle = '#9aa0a6'; ctx.fillRect(3, 3, 10, 2); ctx.fillRect(3, 3, 2, 2); ctx.fillRect(11, 3, 2, 2); ctx.fillRect(2, 4, 2, 2); ctx.fillRect(12, 4, 2, 2); }
+  function iAxe(ctx) { clearI(ctx, 16); handle(ctx); ctx.fillStyle = '#9aa0a6'; ctx.fillRect(8, 3, 4, 6); ctx.fillRect(6, 4, 2, 4); }
+  function iShovel(ctx) { clearI(ctx, 16); handle(ctx); ctx.fillStyle = '#9aa0a6'; ctx.fillRect(9, 3, 4, 4); ctx.fillRect(10, 7, 2, 1); }
+  function iSword(ctx) { clearI(ctx, 16); ctx.fillStyle = '#7a5230'; ctx.fillRect(4, 11, 4, 2); ctx.fillRect(6, 9, 3, 3); ctx.fillStyle = '#caa030'; ctx.fillRect(7, 8, 4, 2); ctx.fillStyle = '#d8dde2'; for (let i = 0; i < 7; i++) ctx.fillRect(9 + i, 7 - i, 2, 2); }
 
   function generateAtlas() {
     const canvas = document.createElement('canvas');
-    canvas.width = ATLAS_W;
-    canvas.height = ATLAS_H;
+    canvas.width = ATLAS_W; canvas.height = ATLAS_H;
     const ctx = canvas.getContext('2d');
     ctx.imageSmoothingEnabled = false;
 
-    // tile 0: empty/transparent
-    // tile 1: grass top
-    drawTile(ctx, 1, drawGrassTop);
-    // tile 2: dirt
-    drawTile(ctx, 2, drawDirt);
-    // tile 3: grass side
-    drawTile(ctx, 3, drawGrassSide);
-    // tile 4: stone
-    drawTile(ctx, 4, drawStone);
-    // tile 5: sand
-    drawTile(ctx, 5, drawSand);
-    // tile 6: water
-    drawTile(ctx, 6, drawWater);
-    // tile 7: log side
-    drawTile(ctx, 7, drawLogSide);
-    // tile 8: log top
-    drawTile(ctx, 8, drawLogTop);
-    // tile 9: leaves
-    drawTile(ctx, 9, drawLeaves);
-    // tile 10: cobblestone
-    drawTile(ctx, 10, drawCobblestone);
-    // tile 11: planks
-    drawTile(ctx, 11, drawPlanks);
-    // tile 12: glass
-    drawTile(ctx, 12, drawGlass);
-    // tile 13: coal ore
-    drawTile(ctx, 13, (ctx, s) => drawOre(ctx, s, 30, 30, 30, 130));
-    // tile 14: iron ore
-    drawTile(ctx, 14, (ctx, s) => drawOre(ctx, s, 200, 150, 100, 140));
-    // tile 15: gold ore
-    drawTile(ctx, 15, (ctx, s) => drawOre(ctx, s, 220, 200, 30, 150));
-    // tile 16: diamond ore
-    drawTile(ctx, 16, (ctx, s) => drawOre(ctx, s, 30, 200, 220, 160));
-    // tile 17: bedrock
-    drawTile(ctx, 17, drawBedrock);
-    // tile 18: gravel
-    drawTile(ctx, 18, drawGravel);
-    // tile 19: glowstone
-    drawTile(ctx, 19, drawGlowstone);
-    // tile 20: obsidian
-    drawTile(ctx, 20, drawObsidian);
-    // tile 21: sandstone top
-    drawTile(ctx, 21, drawSandstoneTop);
-    // tile 22: sandstone side
-    drawTile(ctx, 22, drawSandstoneSide);
-    // tile 23: sandstone bottom
-    drawTile(ctx, 23, drawSandstoneBottom);
-    // tile 24: snow
-    drawTile(ctx, 24, drawSnow);
-    // tile 25: ice
-    drawTile(ctx, 25, drawIce);
-    // tile 26: crafting table top
-    drawTile(ctx, 26, drawCraftingTop);
-    // tile 27: crafting table side
-    drawTile(ctx, 27, drawCraftingSide);
-    // tile 28: furnace front
-    drawTile(ctx, 28, drawFurnaceFront);
-    // tile 29: torch
-    drawTile(ctx, 29, drawTorch);
-    // tile 30: red flower
-    drawTile(ctx, 30, (ctx, s) => drawFlower(ctx, s, '#dd2222'));
-    // tile 31: yellow flower
-    drawTile(ctx, 31, (ctx, s) => drawFlower(ctx, s, '#eeee22'));
-    // tile 32: tall grass
-    drawTile(ctx, 32, drawTallGrass);
-    // tile 33: netherrack
-    drawTile(ctx, 33, drawNetherrack);
-    // tile 34: bookshelf side
-    drawTile(ctx, 34, drawBookshelf);
-    // tile 35: brick
-    drawTile(ctx, 35, drawBrick);
-    // tile 36: mossy cobblestone
-    drawTile(ctx, 36, drawMossyCobble);
-    // tile 37: tnt top
-    drawTile(ctx, 37, drawTNTTop);
-    // tile 38: tnt bottom
-    drawTile(ctx, 38, drawTNTBottom);
-    // tile 39: tnt side
-    drawTile(ctx, 39, drawTNTSide);
+    drawTile(ctx, 1, grassTop);
+    drawTile(ctx, 2, dirt);
+    drawTile(ctx, 3, grassSide);
+    drawTile(ctx, 4, stone);
+    drawTile(ctx, 5, sand);
+    drawTile(ctx, 6, water);
+    drawTile(ctx, 7, logSide);
+    drawTile(ctx, 8, logTop);
+    drawTile(ctx, 9, leaves);
+    drawTile(ctx, 10, cobblestone);
+    drawTile(ctx, 11, planks);
+    drawTile(ctx, 12, glass);
+    drawTile(ctx, 13, (c, s) => ore(c, s, [40, 40, 40], 130));
+    drawTile(ctx, 14, (c, s) => ore(c, s, [196, 150, 120], 140));
+    drawTile(ctx, 15, (c, s) => ore(c, s, [230, 196, 70], 150));
+    drawTile(ctx, 16, (c, s) => ore(c, s, [90, 210, 220], 160));
+    drawTile(ctx, 17, bedrock);
+    drawTile(ctx, 18, gravel);
+    drawTile(ctx, 19, glowstone);
+    drawTile(ctx, 20, obsidian);
+    drawTile(ctx, 21, sandstoneTop);
+    drawTile(ctx, 22, sandstoneSide);
+    drawTile(ctx, 23, sandstoneTop);
+    drawTile(ctx, 24, snow);
+    drawTile(ctx, 25, ice);
+    drawTile(ctx, 26, craftingTop);
+    drawTile(ctx, 27, craftingSide);
+    drawTile(ctx, 28, furnaceFront);
+    drawTile(ctx, 29, torch);
+    drawTile(ctx, 30, (c, s) => flower(c, s, '#d83030'));
+    drawTile(ctx, 31, (c, s) => flower(c, s, '#ffe23a'));
+    drawTile(ctx, 32, tallGrass);
+    drawTile(ctx, 33, netherrack);
+    drawTile(ctx, 34, bookshelf);
+    drawTile(ctx, 35, brick);
+    drawTile(ctx, 36, mossyCobble);
+    drawTile(ctx, 37, tntTop);
+    drawTile(ctx, 38, tntBottom);
+    drawTile(ctx, 39, tntSide);
 
-    // ---- item icons ----
-    drawTile(ctx, 40, drawStick);
-    drawTile(ctx, 41, drawCoal);
-    drawTile(ctx, 42, (c, s) => drawIngot(c, s, 210, 210, 215)); // iron
-    drawTile(ctx, 43, (c, s) => drawIngot(c, s, 235, 205, 60));  // gold
-    drawTile(ctx, 44, drawDiamond);
-    drawTile(ctx, 45, drawApple);
-    drawTile(ctx, 46, drawBread);
-    drawTile(ctx, 47, drawPickaxe);
-    drawTile(ctx, 48, drawAxe);
-    drawTile(ctx, 49, drawShovel);
-    drawTile(ctx, 50, drawSword);
+    drawTile(ctx, 40, iStick);
+    drawTile(ctx, 41, iCoal);
+    drawTile(ctx, 42, (c) => iIngot(c, 214, 214, 220));
+    drawTile(ctx, 43, (c) => iIngot(c, 236, 206, 64));
+    drawTile(ctx, 44, iDiamond);
+    drawTile(ctx, 45, iApple);
+    drawTile(ctx, 46, iBread);
+    drawTile(ctx, 47, iPick);
+    drawTile(ctx, 48, iAxe);
+    drawTile(ctx, 49, iShovel);
+    drawTile(ctx, 50, iSword);
 
     return { canvas, TILE, COLS, ROWS, ATLAS_W, ATLAS_H };
   }
 
-  // Compute UV coordinates for a given tile index and face UV offset [0..1]
   function tileUV(tileIdx) {
-    if (!tileIdx) return [0, 0, 0, 0]; // transparent
-    const col = tileIdx % COLS;
-    const row = Math.floor(tileIdx / COLS);
-    const u0 = col / COLS;
-    const v0 = row / ROWS;
-    const u1 = (col + 1) / COLS;
-    const v1 = (row + 1) / ROWS;
-    return [u0, v0, u1, v1];
+    if (!tileIdx) return [0, 0, 0, 0];
+    const col = tileIdx % COLS, row = Math.floor(tileIdx / COLS);
+    return [col / COLS, row / ROWS, (col + 1) / COLS, (row + 1) / ROWS];
   }
 
   return { generateAtlas, tileUV, TILE, COLS, ROWS, ATLAS_W, ATLAS_H, TOTAL_TILES };

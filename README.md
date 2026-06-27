@@ -18,6 +18,10 @@ No build step, no install — it's plain HTML/CSS/JS.
 
 ## Features
 
+- **Minecraft-style look & UI** — faithful procedural 16×16 block textures, a
+  dirt-background title screen with beveled stone buttons, pixel hearts/hunger,
+  a green XP bar with level, the hotbar selector frame, an inverted crosshair,
+  and a classic gray inventory/crafting GUI.
 - **Lighting engine** — per-block **skylight + block-light flood-fill** with
   **ambient occlusion**, baked into a custom GLSL shader. Torches/glowstone glow,
   caves go dark, and the day/night cycle dims the world *without* rebuilding meshes.

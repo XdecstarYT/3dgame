@@ -46,7 +46,10 @@ class EntityManager {
       const dx = mob.position.x - player.position.x;
       const dz = mob.position.z - player.position.z;
       if (dx*dx + dz*dz > 70*70 || mob.dead) {
-        if (mob.dead) mob.dropLoot();
+        if (mob.dead) {
+          mob.dropLoot();
+          if (window._game && !player.creative) window._game.addXp(5);
+        }
         mob.dispose(this.scene);
         this.entities.splice(i, 1);
       }

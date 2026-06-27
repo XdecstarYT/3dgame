@@ -37,6 +37,7 @@ const SaveManager = (() => {
           yaw: game.player.yaw, pitch: game.player.pitch, creative: game.player.creative,
         },
         health: game.health, hunger: game.hunger,
+        level: game.level, xp: game.xp,
         hotbar: game.inventory.hotbar.map(s => ({ id: s.id, count: s.count })),
         slots: game.inventory.slots.map(s => ({ id: s.id, count: s.count })),
         chunks: [],
@@ -59,6 +60,8 @@ const SaveManager = (() => {
       game.timeOfDay = data.time ?? 0.3;
       game.health = data.health ?? 20;
       game.hunger = data.hunger ?? 20;
+      game.level = data.level ?? 0;
+      game.xp = data.xp ?? 0;
 
       const p = data.player || {};
       game.player.creative = !!p.creative;
@@ -81,6 +84,7 @@ const SaveManager = (() => {
 
       UI.updateHealth(game.health, game.maxHealth);
       UI.updateHunger(game.hunger, game.maxHunger);
+      UI.updateXP(game.level, game._xpFrac());
       UI.updateHotbar(game.inventory);
       return true;
     } catch (e) { console.warn('load failed', e); return false; }

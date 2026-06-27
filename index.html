@@ -23,19 +23,20 @@
 <!-- ==================== TITLE / START SCREEN ==================== -->
 <div id="overlay">
   <div class="title-logo">MINECRAFT</div>
-  <div class="title-edition">Clone Edition v1.0</div>
+  <div class="title-edition">Clone Edition</div>
 
-  <div style="background:rgba(0,0,0,0.4);padding:30px;border:2px solid #333;border-radius:4px;">
-    <button class="menu-btn primary" id="btn-start">&#9658; Singleplayer</button>
-    <button class="menu-btn" onclick="UI?.addChatMessage?.('Multiplayer not yet implemented','System')">&#128101; Multiplayer</button>
-    <button class="menu-btn" onclick="UI?.addChatMessage?.('Options not yet implemented','System')">&#9881; Options</button>
+  <div style="display:flex;flex-direction:column;align-items:center;margin-top:10px;">
+    <button class="menu-btn primary" id="btn-start">Singleplayer</button>
+    <button class="menu-btn" onclick="UI?.addChatMessage?.('Multiplayer not yet implemented','System')">Multiplayer</button>
+    <div style="display:flex;gap:8px;">
+      <button class="menu-btn" style="width:156px" onclick="UI?.addChatMessage?.('Options not yet implemented','System')">Options...</button>
+      <button class="menu-btn" style="width:156px" onclick="UI?.addChatMessage?.('Thanks for playing!','System')">Quit Game</button>
+    </div>
   </div>
 
-  <div style="margin-top:20px;color:#666;font-size:13px;">
-    WASD: Move &nbsp;|&nbsp; Space: Jump &nbsp;|&nbsp; F: Fly &nbsp;|&nbsp; E: Inventory<br>
-    Left Click: Break &nbsp;|&nbsp; Right Click: Place &nbsp;|&nbsp; 1-9: Select item<br>
-    F3: Debug &nbsp;|&nbsp; T: Chat &nbsp;|&nbsp; Esc: Pause<br>
-    /give BLOCKNAME 64 &nbsp;|&nbsp; /tp x y z &nbsp;|&nbsp; /time day
+  <div class="mc-text" style="margin-top:26px;color:#cfcfcf;font-size:12px;text-align:center;line-height:1.7;">
+    WASD Move &nbsp;·&nbsp; Space Jump &nbsp;·&nbsp; F Fly &nbsp;·&nbsp; E Inventory &nbsp;·&nbsp; 1-9 Select<br>
+    Left Click Break/Attack &nbsp;·&nbsp; Right Click Place/Eat &nbsp;·&nbsp; T Chat &nbsp;·&nbsp; F3 Debug &nbsp;·&nbsp; Esc Menu
   </div>
 </div>
 
@@ -62,12 +63,12 @@
 
 <!-- ==================== PAUSE MENU ==================== -->
 <div id="pause-menu">
-  <h1>Game Paused</h1>
-  <button class="menu-btn primary" id="btn-resume">&#9654; Back to Game</button>
-  <button class="menu-btn" id="btn-save">&#128190; Save World</button>
-  <button class="menu-btn" id="btn-newworld">&#10024; New World</button>
+  <h1>Game Menu</h1>
+  <button class="menu-btn primary" id="btn-resume">Back to Game</button>
+  <button class="menu-btn" id="btn-save">Save World</button>
+  <button class="menu-btn" id="btn-newworld">Generate New World</button>
   <button class="menu-btn" id="btn-options">Options...</button>
-  <button class="menu-btn" id="btn-quit" style="color:#ff8888;">Save &amp; Quit</button>
+  <button class="menu-btn" id="btn-quit">Save and Quit to Title</button>
 </div>
 
 <!-- ==================== HUD ==================== -->
@@ -75,43 +76,25 @@
   <!-- Crosshair -->
   <div id="crosshair"></div>
 
-  <!-- Time display -->
-  <div id="time-display">6:00 AM</div>
-
   <!-- Debug overlay (F3) -->
   <div id="debug"></div>
 
-  <!-- Bottom HUD: health, hunger, hotbar, break -->
-  <div id="bottom-hud">
-    <!-- Health -->
-    <div id="health-row" style="display:flex;gap:8px;align-items:center;">
-      <span style="font-size:12px;color:#ff5555;">♥</span>
-      <div id="health-bar"></div>
-    </div>
-    <!-- Hunger -->
-    <div id="hunger-row" style="display:flex;gap:8px;align-items:center;">
-      <div id="hunger-bar"></div>
-      <span style="font-size:12px;color:#cc8844;">🍗</span>
-    </div>
-    <!-- Break progress -->
-    <div id="break-overlay">
-      <div class="break-stages">
-        <div class="break-stage" style="--i:0"></div>
-        <div class="break-stage" style="--i:1"></div>
-        <div class="break-stage" style="--i:2"></div>
-        <div class="break-stage" style="--i:3"></div>
-        <div class="break-stage" style="--i:4"></div>
-        <div class="break-stage" style="--i:5"></div>
-        <div class="break-stage" style="--i:6"></div>
-        <div class="break-stage" style="--i:7"></div>
-        <div class="break-stage" style="--i:8"></div>
-        <div class="break-stage" style="--i:9"></div>
-      </div>
-    </div>
-  </div>
+  <!-- legacy guards (hidden) -->
+  <div id="time-display"></div>
+  <div id="break-overlay"></div>
 
-  <!-- Hotbar -->
-  <div id="hotbar"></div>
+  <!-- Bottom HUD: stats row, xp bar, hotbar -->
+  <div id="hud-bottom">
+    <div id="stats-row">
+      <div id="health-bar"></div>
+      <div id="hunger-bar"></div>
+    </div>
+    <div id="xp-wrap">
+      <div id="xp-level"></div>
+      <div id="xp-bar"><div id="xp-fill"></div></div>
+    </div>
+    <div id="hotbar"></div>
+  </div>
 </div>
 
 <!-- ==================== INVENTORY ==================== -->
@@ -194,6 +177,7 @@
 <script src="js/noise.js"></script>
 <script src="js/blocks.js"></script>
 <script src="js/textures.js"></script>
+<script src="js/uiart.js"></script>
 <script src="js/shaders.js"></script>
 <script src="js/chunk.js"></script>
 <script src="js/world.js"></script>
@@ -212,6 +196,9 @@
 
 <!-- Creative inventory builder + hotbar in inventory -->
 <script>
+// Inject Minecraft-style HUD art (hearts, hunger, dirt menu background)
+try { UIArt.injectCss(); } catch (e) {}
+
 window.addEventListener('load', () => {
   // Build creative grid after game starts
   document.getElementById('btn-start').addEventListener('click', () => {

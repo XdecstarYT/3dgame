@@ -355,6 +355,10 @@ class Player {
         world.setBlock(x, y, z, BLOCK.AIR);
         if (world.settleGravity) world.settleGravity(x, y, z);
         AudioManager.playBlockBreak(id);
+        if (!this.creative && window._game &&
+            (id === BLOCK.COAL_ORE || id === BLOCK.IRON_ORE || id === BLOCK.GOLD_ORE || id === BLOCK.DIAMOND_ORE)) {
+          window._game.addXp(2 + Math.floor(Math.random() * 3));
+        }
         this.breakProgress = 0; this.breakTarget = null;
       }
     } else {
