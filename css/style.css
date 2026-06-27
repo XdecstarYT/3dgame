@@ -1,0 +1,554 @@
+/* Reset & Base */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  overflow: hidden;
+  background: #000;
+  font-family: 'Segoe UI', sans-serif;
+  color: #fff;
+  user-select: none;
+}
+
+canvas#canvas {
+  display: block;
+  width: 100vw;
+  height: 100vh;
+}
+
+/* ==================== OVERLAY / MENUS ==================== */
+
+#overlay, #loading, #death-screen, #pause-menu {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+#overlay {
+  background: radial-gradient(ellipse at center, #1a4a2a 0%, #0a1a0a 70%);
+}
+
+#loading {
+  background: rgba(0,0,0,0.9);
+  display: none;
+}
+
+.loading-inner {
+  text-align: center;
+}
+
+.loading-bar-wrap {
+  width: 300px; height: 20px;
+  border: 2px solid #555;
+  margin: 15px auto;
+  background: #222;
+}
+
+.loading-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #4a8a4a, #6aba6a);
+  animation: loadPulse 1.5s infinite;
+  width: 100%;
+}
+
+@keyframes loadPulse {
+  0%,100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+/* Title Screen */
+.title-logo {
+  font-size: 64px;
+  font-weight: 900;
+  letter-spacing: 2px;
+  text-shadow:
+    4px 4px 0 #2a5a2a,
+    -2px -2px 0 #1a3a1a,
+    0 0 30px rgba(100,200,100,0.5);
+  color: #7afa7a;
+  margin-bottom: 10px;
+  font-family: 'Arial Black', sans-serif;
+}
+
+.title-edition {
+  font-size: 18px;
+  color: #aaa;
+  margin-bottom: 50px;
+  text-shadow: 1px 1px 2px #000;
+}
+
+.menu-btn {
+  display: block;
+  width: 280px;
+  padding: 14px 20px;
+  margin: 8px auto;
+  font-size: 20px;
+  font-weight: bold;
+  border: 3px solid #555;
+  background: linear-gradient(180deg, #5a5a5a 0%, #3a3a3a 50%, #2a2a2a 100%);
+  color: #fff;
+  cursor: pointer;
+  text-align: center;
+  text-shadow: 1px 1px 2px #000;
+  transition: all 0.1s;
+  image-rendering: pixelated;
+  letter-spacing: 1px;
+}
+
+.menu-btn:hover {
+  background: linear-gradient(180deg, #7a7a7a 0%, #5a5a5a 50%, #4a4a4a 100%);
+  border-color: #aaa;
+  transform: scale(1.02);
+}
+
+.menu-btn:active {
+  transform: scale(0.98);
+  background: linear-gradient(180deg, #3a3a3a 0%, #2a2a2a 100%);
+}
+
+.menu-btn.primary {
+  background: linear-gradient(180deg, #5a8a5a 0%, #3a6a3a 50%, #2a5a2a 100%);
+  border-color: #6a9a6a;
+}
+
+.menu-btn.primary:hover {
+  background: linear-gradient(180deg, #7aaa7a 0%, #5a8a5a 50%, #4a7a4a 100%);
+}
+
+/* ==================== PAUSE MENU ==================== */
+
+#pause-menu {
+  background: rgba(0,0,0,0.7);
+  display: none;
+}
+
+#pause-menu h1 {
+  font-size: 40px;
+  margin-bottom: 30px;
+  text-shadow: 2px 2px 4px #000;
+}
+
+/* ==================== DEATH SCREEN ==================== */
+
+#death-screen {
+  background: rgba(150, 0, 0, 0.5);
+  display: none;
+}
+
+#death-screen h1 {
+  font-size: 50px;
+  color: #ff3333;
+  text-shadow: 3px 3px 6px #000;
+  margin-bottom: 10px;
+}
+
+#death-screen p {
+  font-size: 22px;
+  color: #ffaaaa;
+  margin-bottom: 30px;
+}
+
+/* ==================== HUD ==================== */
+
+#hud {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* Crosshair */
+#crosshair {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 20px; height: 20px;
+}
+
+#crosshair::before, #crosshair::after {
+  content: '';
+  position: absolute;
+  background: rgba(255,255,255,0.9);
+}
+
+#crosshair::before { /* horizontal */
+  left: 0; top: 50%; transform: translateY(-50%);
+  width: 100%; height: 2px;
+}
+
+#crosshair::after { /* vertical */
+  top: 0; left: 50%; transform: translateX(-50%);
+  height: 100%; width: 2px;
+}
+
+/* Hotbar */
+#hotbar {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 3px;
+  background: rgba(0,0,0,0.5);
+  padding: 4px;
+  border: 2px solid #555;
+  border-radius: 4px;
+}
+
+.hotbar-slot {
+  width: 50px; height: 50px;
+  border: 2px solid #666;
+  background: rgba(50,50,50,0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  border-radius: 3px;
+}
+
+.hotbar-slot.selected {
+  border-color: #fff;
+  background: rgba(80,80,80,0.9);
+  box-shadow: 0 0 8px rgba(255,255,255,0.4);
+}
+
+.hotbar-slot canvas.item-icon {
+  width: 36px; height: 36px;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+.item-count {
+  position: absolute;
+  bottom: 1px; right: 3px;
+  font-size: 11px;
+  font-weight: bold;
+  text-shadow: 1px 1px 2px #000;
+  color: #fff;
+  pointer-events: none;
+}
+
+/* Health & Hunger */
+#bottom-hud {
+  position: absolute;
+  bottom: 68px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+#health-row, #hunger-row {
+  display: flex;
+  gap: 2px;
+  align-items: center;
+}
+
+#health-bar, #hunger-bar {
+  display: flex;
+  gap: 2px;
+}
+
+.heart, .hunger-icon {
+  font-size: 14px;
+  line-height: 1;
+  filter: drop-shadow(1px 1px 1px rgba(0,0,0,0.8));
+}
+
+.heart.full { color: #ff3333; }
+.heart.half { color: #ff8888; }
+.heart.empty { color: #444; }
+.hunger-icon.full { color: #cc8844; }
+.hunger-icon.empty { color: #555; font-size: 10px; }
+
+/* Break overlay */
+#break-overlay {
+  position: absolute;
+  bottom: 75px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: none;
+  background: rgba(0,0,0,0.6);
+  border: 2px solid #555;
+  border-radius: 3px;
+  padding: 3px;
+}
+
+.break-stages {
+  display: flex;
+  gap: 2px;
+}
+
+.break-stage {
+  width: 16px; height: 8px;
+  background: #333;
+  border-radius: 1px;
+}
+
+.break-stage.active {
+  background: #cc4400;
+}
+
+/* Time display */
+#time-display {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 13px;
+  color: rgba(255,255,255,0.7);
+  text-shadow: 1px 1px 2px #000;
+  background: rgba(0,0,0,0.3);
+  padding: 2px 8px;
+  border-radius: 3px;
+}
+
+/* ==================== DEBUG OVERLAY ==================== */
+
+#debug {
+  position: absolute;
+  top: 8px; left: 8px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: #fff;
+  text-shadow: 1px 1px 2px #000;
+  background: rgba(0,0,0,0.5);
+  padding: 8px 12px;
+  border-radius: 4px;
+  display: none;
+  font-family: monospace;
+}
+
+/* ==================== WATER OVERLAY ==================== */
+
+#water-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 50, 150, 0.4);
+  pointer-events: none;
+  display: none;
+  z-index: 5;
+  animation: waterWave 2s infinite;
+}
+
+@keyframes waterWave {
+  0%,100% { opacity: 0.4; }
+  50% { opacity: 0.55; }
+}
+
+/* ==================== INVENTORY ==================== */
+
+#inventory {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.65);
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  pointer-events: all;
+}
+
+.inv-container {
+  background: #c6c6c6;
+  border: 3px solid #fff;
+  border-right-color: #555;
+  border-bottom-color: #555;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 400px;
+  box-shadow: 4px 4px 0 rgba(0,0,0,0.5);
+}
+
+.inv-container h2 {
+  color: #333;
+  font-size: 14px;
+  font-weight: bold;
+  text-shadow: 1px 1px 0 rgba(255,255,255,0.5);
+}
+
+#inv-grid {
+  display: grid;
+  grid-template-columns: repeat(9, 46px);
+  gap: 3px;
+}
+
+.inv-slot {
+  width: 46px; height: 46px;
+  border: 2px solid #555;
+  border-right-color: #fff;
+  border-bottom-color: #fff;
+  background: rgba(0,0,0,0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  position: relative;
+}
+
+.inv-slot:hover {
+  background: rgba(255,255,255,0.2);
+}
+
+.inv-slot canvas.item-icon {
+  width: 36px; height: 36px;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+/* Crafting Section */
+.crafting-section {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+}
+
+#craft-slots {
+  display: grid;
+  grid-template-columns: repeat(3, 46px);
+  gap: 3px;
+}
+
+.craft-arrow {
+  font-size: 28px;
+  color: #555;
+}
+
+#craft-result {
+  width: 46px; height: 46px;
+  border: 3px solid #aaa;
+  border-right-color: #fff;
+  border-bottom-color: #fff;
+  background: rgba(0,0,0,0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  position: relative;
+}
+
+#craft-result:hover { background: rgba(255,255,255,0.3); }
+
+/* Inventory hotbar row */
+.inv-hotbar {
+  display: flex;
+  gap: 3px;
+}
+
+.inv-hotbar .inv-slot {
+  width: 46px; height: 46px;
+}
+
+/* Separator */
+.inv-separator {
+  border: none;
+  border-top: 2px solid #999;
+}
+
+/* Creative mode item browser */
+.creative-tabs {
+  display: flex;
+  gap: 3px;
+  flex-wrap: wrap;
+  margin-bottom: 5px;
+}
+
+.creative-tab {
+  padding: 4px 10px;
+  background: #aaa;
+  border: 2px solid #888;
+  cursor: pointer;
+  font-size: 12px;
+  color: #333;
+}
+
+.creative-tab.active {
+  background: #c6c6c6;
+  border-bottom-color: #c6c6c6;
+}
+
+/* ==================== CHAT ==================== */
+
+#chat-area {
+  position: fixed;
+  bottom: 80px;
+  left: 10px;
+  width: 450px;
+  z-index: 20;
+  pointer-events: none;
+}
+
+#chat {
+  max-height: 120px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.chat-message {
+  font-size: 13px;
+  color: #fff;
+  text-shadow: 1px 1px 2px #000;
+  background: rgba(0,0,0,0.5);
+  padding: 2px 6px;
+  border-radius: 2px;
+  transition: opacity 1s;
+  word-break: break-word;
+}
+
+.chat-sender { color: #aaffaa; font-weight: bold; }
+
+#chat-input {
+  display: none;
+  width: 100%;
+  margin-top: 4px;
+  padding: 6px 10px;
+  background: rgba(0,0,0,0.8);
+  border: 2px solid #555;
+  color: #fff;
+  font-size: 14px;
+  outline: none;
+  pointer-events: all;
+}
+
+/* ==================== MISC ==================== */
+
+#fps-counter {
+  display: none;
+}
+
+/* Vignette */
+#vignette {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.5) 100%);
+  pointer-events: none;
+  z-index: 4;
+}
+
+/* Controls hint */
+#controls-hint {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  color: rgba(255,255,255,0.7);
+  font-size: 14px;
+  line-height: 2;
+  pointer-events: none;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #222; }
+::-webkit-scrollbar-thumb { background: #555; border-radius: 3px; }

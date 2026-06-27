@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Minecraft Clone</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- Main 3D Canvas -->
+<canvas id="canvas"></canvas>
+
+<!-- Water tint overlay (when underwater) -->
+<div id="water-overlay"></div>
+
+<!-- Vignette -->
+<div id="vignette"></div>
+
+<!-- ==================== TITLE / START SCREEN ==================== -->
+<div id="overlay">
+  <div class="title-logo">MINECRAFT</div>
+  <div class="title-edition">Clone Edition v1.0</div>
+
+  <div style="background:rgba(0,0,0,0.4);padding:30px;border:2px solid #333;border-radius:4px;">
+    <button class="menu-btn primary" id="btn-start">&#9658; Singleplayer</button>
+    <button class="menu-btn" onclick="UI?.addChatMessage?.('Multiplayer not yet implemented','System')">&#128101; Multiplayer</button>
+    <button class="menu-btn" onclick="UI?.addChatMessage?.('Options not yet implemented','System')">&#9881; Options</button>
+  </div>
+
+  <div style="margin-top:20px;color:#666;font-size:13px;">
+    WASD: Move &nbsp;|&nbsp; Space: Jump &nbsp;|&nbsp; F: Fly &nbsp;|&nbsp; E: Inventory<br>
+    Left Click: Break &nbsp;|&nbsp; Right Click: Place &nbsp;|&nbsp; 1-9: Select item<br>
+    F3: Debug &nbsp;|&nbsp; T: Chat &nbsp;|&nbsp; Esc: Pause<br>
+    /give BLOCKNAME 64 &nbsp;|&nbsp; /tp x y z &nbsp;|&nbsp; /time day
+  </div>
+</div>
+
+<!-- ==================== LOADING SCREEN ==================== -->
+<div id="loading">
+  <div class="loading-inner">
+    <div style="font-size:40px;font-weight:bold;color:#7afa7a;text-shadow:2px 2px 4px #000;">
+      MINECRAFT
+    </div>
+    <div style="margin-top:15px;font-size:16px;color:#aaa;">Generating world...</div>
+    <div class="loading-bar-wrap">
+      <div class="loading-bar"></div>
+    </div>
+    <div style="font-size:13px;color:#666;">Loading terrain, mobs, and game systems...</div>
+  </div>
+</div>
+
+<!-- ==================== DEATH SCREEN ==================== -->
+<div id="death-screen">
+  <h1>You Died!</h1>
+  <p>Score: 0</p>
+  <button class="menu-btn primary" id="btn-respawn">&#9654; Respawn</button>
+</div>
+
+<!-- ==================== PAUSE MENU ==================== -->
+<div id="pause-menu">
+  <h1>Game Paused</h1>
+  <button class="menu-btn primary" id="btn-resume">&#9654; Back to Game</button>
+  <button class="menu-btn" id="btn-options">Options...</button>
+  <button class="menu-btn" id="btn-quit" style="color:#ff8888;">Quit Game</button>
+</div>
+
+<!-- ==================== HUD ==================== -->
+<div id="hud">
+  <!-- Crosshair -->
+  <div id="crosshair"></div>
+
+  <!-- Time display -->
+  <div id="time-display">6:00 AM</div>
+
+  <!-- Debug overlay (F3) -->
+  <div id="debug"></div>
+
+  <!-- Bottom HUD: health, hunger, hotbar, break -->
+  <div id="bottom-hud">
+    <!-- Health -->
+    <div id="health-row" style="display:flex;gap:8px;align-items:center;">
+      <span style="font-size:12px;color:#ff5555;">♥</span>
+      <div id="health-bar"></div>
+    </div>
+    <!-- Hunger -->
+    <div id="hunger-row" style="display:flex;gap:8px;align-items:center;">
+      <div id="hunger-bar"></div>
+      <span style="font-size:12px;color:#cc8844;">🍗</span>
+    </div>
+    <!-- Break progress -->
+    <div id="break-overlay">
+      <div class="break-stages">
+        <div class="break-stage" style="--i:0"></div>
+        <div class="break-stage" style="--i:1"></div>
+        <div class="break-stage" style="--i:2"></div>
+        <div class="break-stage" style="--i:3"></div>
+        <div class="break-stage" style="--i:4"></div>
+        <div class="break-stage" style="--i:5"></div>
+        <div class="break-stage" style="--i:6"></div>
+        <div class="break-stage" style="--i:7"></div>
+        <div class="break-stage" style="--i:8"></div>
+        <div class="break-stage" style="--i:9"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Hotbar -->
+  <div id="hotbar"></div>
+</div>
+
+<!-- ==================== INVENTORY ==================== -->
+<div id="inventory">
+  <div class="inv-container">
+    <h2>Inventory</h2>
+
+    <!-- Crafting grid (3x3) -->
+    <div class="crafting-section">
+      <div>
+        <div style="font-size:12px;color:#555;margin-bottom:4px;">Crafting</div>
+        <div id="craft-slots"></div>
+      </div>
+      <div class="craft-arrow">&#10132;</div>
+      <div>
+        <div style="font-size:12px;color:#555;margin-bottom:4px;">Result</div>
+        <div id="craft-result" data-type="craft-result">
+          <canvas class="item-icon" width="32" height="32"></canvas>
+          <span class="item-count"></span>
+        </div>
+      </div>
+    </div>
+
+    <hr class="inv-separator">
+
+    <!-- Inventory grid (3x9) -->
+    <div id="inv-grid"></div>
+
+    <hr class="inv-separator">
+
+    <!-- Hotbar row (inside inventory) -->
+    <div class="inv-hotbar" id="inv-hotbar-row"></div>
+  </div>
+
+  <!-- Creative mode block browser -->
+  <div class="inv-container" style="margin-top:10px;max-width:420px;">
+    <h2>Creative Items (click to add to hotbar)</h2>
+    <div id="creative-grid" style="display:grid;grid-template-columns:repeat(9,46px);gap:3px;max-height:200px;overflow-y:auto;"></div>
+  </div>
+</div>
+
+<!-- ==================== CHAT ==================== -->
+<div id="chat-area">
+  <div id="chat"></div>
+  <input type="text" id="chat-input" placeholder="Type a message or /command..." maxlength="200">
+</div>
+
+<!-- ==================== THREE.JS ==================== -->
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+
+<!-- ==================== GAME SCRIPTS ==================== -->
+<script src="js/noise.js"></script>
+<script src="js/blocks.js"></script>
+<script src="js/textures.js"></script>
+<script src="js/chunk.js"></script>
+<script src="js/world.js"></script>
+<script src="js/player.js"></script>
+<script src="js/inventory.js"></script>
+<script src="js/crafting.js"></script>
+<script src="js/entities.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/sky.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/game.js"></script>
+
+<!-- Creative inventory builder + hotbar in inventory -->
+<script>
+window.addEventListener('load', () => {
+  // Build creative grid after game starts
+  document.getElementById('btn-start').addEventListener('click', () => {
+    setTimeout(() => {
+      const grid = document.getElementById('creative-grid');
+      if (!grid) return;
+      grid.innerHTML = '';
+      const allBlocks = Object.entries(BLOCK).filter(([, id]) => id !== BLOCK.AIR);
+      allBlocks.forEach(([name, id]) => {
+        const def = BLOCK_DEF[id];
+        if (!def || def.stackSize === 0) return;
+        const slot = document.createElement('div');
+        slot.className = 'inv-slot';
+        slot.title = def.name;
+        slot.style.cursor = 'pointer';
+        slot.innerHTML = `<canvas class="item-icon" width="32" height="32"></canvas>`;
+        slot.addEventListener('click', () => {
+          if (window._game) {
+            window._game.inventory.addItem(id, 64);
+            UI.updateHotbar(window._game.inventory);
+            AudioManager.playSound('item_pickup');
+          }
+        });
+        grid.appendChild(slot);
+        // Draw icon
+        setTimeout(() => {
+          const canvas = slot.querySelector('.item-icon');
+          if (canvas && window._atlasCanvas) UI.drawItemIcon(canvas, id);
+        }, 500);
+      });
+
+      // Build hotbar row inside inventory
+      const hotbarRow = document.getElementById('inv-hotbar-row');
+      if (hotbarRow) {
+        hotbarRow.innerHTML = '';
+        for (let i = 0; i < HOTBAR_SIZE; i++) {
+          const s = document.createElement('div');
+          s.className = 'inv-slot';
+          s.dataset.type = 'hotbar-slot';
+          s.dataset.index = i;
+          s.innerHTML = `<canvas class="item-icon" width="32" height="32"></canvas><span class="item-count"></span>`;
+          hotbarRow.appendChild(s);
+        }
+      }
+    }, 300);
+  });
+});
+</script>
+
+</body>
+</html>
