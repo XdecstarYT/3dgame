@@ -44,6 +44,7 @@ class Player {
     this.breakTarget = null;
     this.lastBreakParticle = 0;
     this.placeCooldown = 0;
+    this.eatTimer = 0;
 
     this.currentTarget = null;
     this.meleeTarget = null;
@@ -278,21 +279,34 @@ class Player {
     const eye = this.camera.position.clone();
     const result = world.raycast(eye, dir, REACH);
 
-    // PLACE
+    // Right-click intent (resolved once; mobile tap is a one-shot)
     let wantPlace = this.mouseButtons[2];
-    if (m && m.enabled && typeof MobileControls.consumePlace === 'function') {
-      if (MobileControls.consumePlace()) wantPlace = true;
+    if (m && m.enabled && typeof MobileControls.consumePlace === 'function' && MobileControls.consumePlace()) wantPlace = true;
+
+    const sel = inventory.getSelectedItem();
+    const selDef = (sel && sel.id) ? getDef(sel.id) : null;
+
+    // EAT food on right-click (hold on desktop, tap on mobile)
+    if (selDef && selDef.food) {
+      if (wantPlace) {
+        if (m && m.enabled) { this._eat(sel, inventory, selDef); }
+        else { this.eatTimer += dt; if (this.eatTimer >= 1.0) { this.eatTimer = 0; this._eat(sel, inventory, selDef); } }
+      } else this.eatTimer = 0;
+      wantPlace = false;
     }
+
+    // PLACE
     if (wantPlace && result.hit && this.placeCooldown <= 0) {
       this.mouseButtons[2] = false;
       this.placeCooldown = 0.18;
-      const slot = inventory.getSelectedItem();
+      const slot = sel;
       if (slot && slot.id !== BLOCK.AIR && slot.count > 0 && BLOCK_DEF[slot.id] && BLOCK_DEF[slot.id].stackSize > 0) {
         const { x, y, z } = result.face;
         if (!this._intersectsPlayer(x, y, z)) {
           const existing = world.getBlock(x, y, z);
           if (existing === BLOCK.AIR || isLiquid(existing)) {
             world.setBlock(x, y, z, slot.id);
+            if (world.onBlockPlaced) world.onBlockPlaced(x, y, z, slot.id);
             if (!this.creative) inventory.consumeSelected();
             AudioManager.playBlockPlace(slot.id);
             if (window._game && window._game.handView) window._game.handView.triggerSwing();
@@ -339,11 +353,21 @@ class Player {
           }
         }
         world.setBlock(x, y, z, BLOCK.AIR);
+        if (world.settleGravity) world.settleGravity(x, y, z);
         AudioManager.playBlockBreak(id);
         this.breakProgress = 0; this.breakTarget = null;
       }
     } else {
       this.breakProgress = 0; this.breakTarget = null;
+    }
+  }
+
+  _eat(sel, inventory, def) {
+    const g = window._game;
+    if (!g || typeof g.eat !== 'function') return;
+    if (g.eat(def.food)) {
+      AudioManager.playSound('eat');
+      if (!this.creative) inventory.consumeSelected();
     }
   }
 

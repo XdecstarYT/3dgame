@@ -353,6 +353,15 @@ class Game {
     }
   }
 
+  eat(amount) {
+    if (this.hunger >= this.maxHunger && this.health >= this.maxHealth) return false;
+    this.hunger = Math.min(this.maxHunger, this.hunger + amount);
+    if (this.health < this.maxHealth) this.health = Math.min(this.maxHealth, this.health + 2);
+    UI.updateHunger(this.hunger, this.maxHunger);
+    UI.updateHealth(this.health, this.maxHealth);
+    return true;
+  }
+
   hurtPlayer(amount, fromPos) {
     if (this.player.creative || amount <= 0 || this._invuln > 0 || this.health <= 0) return;
     this.health -= amount;

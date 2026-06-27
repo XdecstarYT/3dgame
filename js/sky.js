@@ -53,6 +53,22 @@ class Sky {
     this.starsMesh = new THREE.Points(starsGeo, starsMat);
     scene.add(this.starsMesh);
 
+    // Clouds: a big scrolling textured plane high above the player
+    const cc = document.createElement('canvas'); cc.width = 128; cc.height = 128;
+    const cx = cc.getContext('2d'); cx.clearRect(0, 0, 128, 128);
+    for (let i = 0; i < 36; i++) {
+      cx.fillStyle = `rgba(255,255,255,${0.5 + Math.random() * 0.4})`;
+      cx.beginPath(); cx.arc(Math.random() * 128, Math.random() * 128, 7 + Math.random() * 15, 0, Math.PI * 2); cx.fill();
+    }
+    const cloudTex = new THREE.CanvasTexture(cc);
+    cloudTex.wrapS = cloudTex.wrapT = THREE.RepeatWrapping;
+    cloudTex.repeat.set(8, 8);
+    const cloudGeo = new THREE.PlaneGeometry(3000, 3000); cloudGeo.rotateX(Math.PI / 2);
+    const cloudMat = new THREE.MeshBasicMaterial({ map: cloudTex, transparent: true, opacity: 0.8, depthWrite: false, side: THREE.DoubleSide, fog: false });
+    this.clouds = new THREE.Mesh(cloudGeo, cloudMat);
+    this.clouds.position.y = 160;
+    scene.add(this.clouds);
+
     // Lighting
     this.ambientLight = new THREE.AmbientLight(0x404060, 0.5);
     scene.add(this.ambientLight);
@@ -67,6 +83,13 @@ class Sky {
     const angle = timeOfDay * Math.PI * 2;
     const sunX = Math.cos(angle) * 700;
     const sunY = Math.sin(angle) * 700;
+
+    // Drift clouds with the player + slow scroll
+    if (this.clouds) {
+      this.clouds.position.set(playerPos.x, 160, playerPos.z);
+      this.clouds.material.map.offset.x = (performance.now() * 0.000012) % 1;
+      this.clouds.material.opacity = sunY > 0 ? 0.8 : 0.35;
+    }
 
     // Sun and moon positions (opposite each other)
     this.sunMesh.position.set(playerPos.x + sunX, playerPos.y + sunY, playerPos.z);

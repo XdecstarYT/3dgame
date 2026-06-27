@@ -241,6 +241,30 @@ class World {
     const n4 = this.getChunk(cx, cz+1); if (n4) n4.dirty = true;
   }
 
+  _openForFall(id) { return id === BLOCK.AIR || isLiquid(id); }
+
+  // A gravity block was placed mid-air: drop it straight down to rest.
+  onBlockPlaced(wx, wy, wz, id) {
+    const def = BLOCK_DEF[id];
+    if (!def || !def.gravity) return;
+    let ty = wy;
+    while (ty > 1 && this._openForFall(this.getBlock(wx, ty - 1, wz))) ty--;
+    if (ty !== wy) { this.setBlock(wx, wy, wz, BLOCK.AIR); this.setBlock(wx, ty, wz, id); }
+  }
+
+  // A block was removed at (wx,wy,wz): let gravity blocks above fall into the gap.
+  settleGravity(wx, wy, wz) {
+    for (let cy = wy + 1; cy < CHUNK_H; cy++) {
+      const id = this.getBlock(wx, cy, wz);
+      if (id === BLOCK.AIR) continue;
+      const def = BLOCK_DEF[id];
+      if (!def || !def.gravity) break;        // supported by a normal block; stop
+      let ty = cy;
+      while (ty > 1 && this._openForFall(this.getBlock(wx, ty - 1, wz))) ty--;
+      if (ty !== cy) { this.setBlock(wx, cy, wz, BLOCK.AIR); this.setBlock(wx, ty, wz, id); }
+    }
+  }
+
   // Returns [skyLight(0..15), blockLight(0..15)] at world coords.
   getLightWorld(wx, wy, wz) {
     if (wy < 0) return SAMPLE_DARK;
