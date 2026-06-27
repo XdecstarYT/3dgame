@@ -154,8 +154,36 @@
   <input type="text" id="chat-input" placeholder="Type a message or /command..." maxlength="200">
 </div>
 
-<!-- ==================== THREE.JS ==================== -->
-<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+<!-- ==================== MOBILE TOUCH CONTROLS (auto-detected) ==================== -->
+<div id="mobile-controls">
+  <!-- Look drag area (full screen, behind buttons) -->
+  <div id="look-zone"></div>
+
+  <!-- Movement joystick zone (bottom-left) -->
+  <div id="joy-zone">
+    <div id="joy-base">
+      <div id="joy-knob"></div>
+    </div>
+  </div>
+
+  <!-- Action buttons (bottom-right) -->
+  <div id="touch-buttons">
+    <div class="touch-btn" id="btn-break">⛏</div>
+    <div class="touch-btn" id="btn-jump">▲</div>
+    <div class="touch-btn" id="btn-place">⬛</div>
+    <div class="touch-btn small" id="btn-fly-up">⤒</div>
+  </div>
+
+  <!-- Top-right utility buttons -->
+  <div id="touch-utils">
+    <div class="touch-btn small" id="btn-inv">🎒</div>
+    <div class="touch-btn small" id="btn-fly">✈</div>
+    <div class="touch-btn small" id="btn-sneak">⬇</div>
+  </div>
+</div>
+
+<!-- ==================== THREE.JS (vendored locally — no CDN dependency) ==================== -->
+<script src="vendor/three.min.js"></script>
 
 <!-- ==================== GAME SCRIPTS ==================== -->
 <script src="js/noise.js"></script>
@@ -170,6 +198,9 @@
 <script src="js/audio.js"></script>
 <script src="js/sky.js"></script>
 <script src="js/ui.js"></script>
+<script src="js/particles.js"></script>
+<script src="js/handview.js"></script>
+<script src="js/mobile.js"></script>
 <script src="js/game.js"></script>
 
 <!-- Creative inventory builder + hotbar in inventory -->

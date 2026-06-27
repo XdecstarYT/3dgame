@@ -25,6 +25,11 @@ class Game {
     this.material = null;
     this.waterMaterial = null;
 
+    this.particles = null;
+    this.handView = null;
+    this.baseFOV = 75;
+    this.targetFOV = 75;
+
     this.lastTime = 0;
     this.fps = 60;
     this.fpsSmooth = 60;
@@ -42,6 +47,9 @@ class Game {
     this._setupPlayer();
     this._setupUI();
     this._setupEvents();
+
+    // Auto-detect & init touch controls
+    if (typeof MobileControls !== 'undefined') MobileControls.init();
 
     // Pre-generate chunks around spawn
     this._pregenerate();
@@ -79,25 +87,38 @@ class Game {
     const texture = new THREE.CanvasTexture(atlasCanvas);
     texture.magFilter = THREE.NearestFilter;
     texture.minFilter = THREE.NearestFilter;
-    texture.wrapS = THREE.RepeatWrapping;
-    texture.wrapT = THREE.RepeatWrapping;
+    texture.flipY = false;          // match our row-from-top atlas UV convention
+    texture.generateMipmaps = false;
 
+    // alphaTest cuts out transparent texels (leaf holes, flowers, glass center, torch)
+    // DoubleSide so cross-model plants & leaf faces are visible from both directions.
     this.material = new THREE.MeshLambertMaterial({
       map: texture,
-      side: THREE.FrontSide,
+      side: THREE.DoubleSide,
+      alphaTest: 0.5,
     });
 
     // Water material (semi-transparent)
     const waterTexture = new THREE.CanvasTexture(atlasCanvas);
     waterTexture.magFilter = THREE.NearestFilter;
     waterTexture.minFilter = THREE.NearestFilter;
+    waterTexture.flipY = false;
+    waterTexture.generateMipmaps = false;
 
     this.waterMaterial = new THREE.MeshLambertMaterial({
       map: waterTexture,
       transparent: true,
-      opacity: 0.75,
+      opacity: 0.72,
       side: THREE.DoubleSide,
+      depthWrite: false,
     });
+
+    // Texture for dropped items
+    const dropTex = new THREE.CanvasTexture(atlasCanvas);
+    dropTex.magFilter = THREE.NearestFilter;
+    dropTex.minFilter = THREE.NearestFilter;
+    dropTex.flipY = false;
+    window._dropTexture = dropTex;
   }
 
   _setupWorld() {
@@ -110,6 +131,13 @@ class Game {
     this.inventory = new Inventory();
     this.player = new Player(this.world, this.camera);
     this.scene.add(this.player.highlightMesh);
+
+    // Particles + dropped items
+    this.particles = new ParticleSystem(this.scene);
+
+    // First-person hand / held item + view bobbing
+    this.scene.add(this.camera); // camera must be in graph for its child hand mesh to render
+    this.handView = new HandView(this.camera, this.scene);
 
     // Spawn at a good location
     this.player.respawn();
@@ -125,15 +153,23 @@ class Game {
     // Pointer lock
     const canvas = document.getElementById('canvas');
 
+    const isMobile = () => typeof MobileControls !== 'undefined' && MobileControls.state.enabled;
+
     canvas.addEventListener('click', () => {
+      if (isMobile()) return; // touch controls don't use pointer lock
       if (!this.inventory.open) {
         canvas.requestPointerLock();
       }
     });
 
     document.addEventListener('pointerlockchange', () => {
+      if (isMobile()) { document.getElementById('overlay').style.display = 'none'; return; }
       const locked = !!document.pointerLockElement;
-      document.getElementById('overlay').style.display = locked ? 'none' : 'flex';
+      // Only re-show the click-to-play overlay if not in a menu
+      const inMenu = this.inventory.open ||
+        document.getElementById('pause-menu').style.display === 'flex' ||
+        document.getElementById('death-screen').style.display === 'flex';
+      document.getElementById('overlay').style.display = (locked || inMenu) ? 'none' : 'flex';
     });
 
     // Debug overlay toggle
@@ -224,8 +260,25 @@ class Game {
     this.world.update(this.player.position.x, this.player.position.z);
 
     // Update player
-    if (document.pointerLockElement) {
+    if (this.player.active()) {
       this.player.update(dt, this.world, this.inventory);
+    }
+
+    // Held item in hand + swing/bob (after camera is positioned by player)
+    if (this.handView) {
+      const sel = this.inventory.getSelectedItem();
+      this.handView.setHeld(sel ? sel.id : BLOCK.AIR);
+      this.handView.update(dt, this.player);
+    }
+
+    // Particles & dropped items
+    if (this.particles) this.particles.update(dt, this.player, this.inventory);
+
+    // Sprint FOV (Minecraft-style)
+    this.targetFOV = this.baseFOV + (this.player.sprinting && !this.player.flying ? 8 : 0) + (this.player.flying ? 12 : 0);
+    if (Math.abs(this.camera.fov - this.targetFOV) > 0.1) {
+      this.camera.fov += (this.targetFOV - this.camera.fov) * Math.min(1, dt * 8);
+      this.camera.updateProjectionMatrix();
     }
 
     // Survival mechanics

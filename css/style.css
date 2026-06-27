@@ -552,3 +552,110 @@ canvas#canvas {
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: #222; }
 ::-webkit-scrollbar-thumb { background: #555; border-radius: 3px; }
+
+/* ==================== MOBILE TOUCH CONTROLS ==================== */
+
+#mobile-controls {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: none;            /* shown only when touch detected */
+  pointer-events: none;
+  touch-action: none;
+}
+
+/* Look drag area = whole screen, sits behind interactive widgets */
+#look-zone {
+  position: absolute;
+  inset: 0;
+  pointer-events: auto;
+  z-index: 1;
+}
+
+/* Joystick */
+#joy-zone {
+  position: absolute;
+  left: 0; bottom: 0;
+  width: 45%; height: 55%;
+  pointer-events: auto;
+  z-index: 2;
+}
+
+#joy-base {
+  position: absolute;
+  width: 120px; height: 120px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.12);
+  border: 2px solid rgba(255,255,255,0.35);
+  display: none;
+  pointer-events: none;
+}
+
+#joy-knob {
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 54px; height: 54px;
+  margin: -27px 0 0 -27px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.4);
+  border: 2px solid rgba(255,255,255,0.7);
+  pointer-events: none;
+}
+
+/* Action buttons cluster (bottom-right) */
+#touch-buttons {
+  position: absolute;
+  right: 18px; bottom: 24px;
+  width: 200px; height: 200px;
+  pointer-events: none;
+  z-index: 3;
+}
+
+#touch-utils {
+  position: absolute;
+  right: 14px; top: 14px;
+  display: flex;
+  gap: 10px;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.touch-btn {
+  position: absolute;
+  width: 72px; height: 72px;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.35);
+  border: 2px solid rgba(255,255,255,0.45);
+  color: #fff;
+  font-size: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+  user-select: none;
+  -webkit-user-select: none;
+  text-shadow: 1px 1px 2px #000;
+}
+
+.touch-btn.small {
+  position: relative;
+  width: 54px; height: 54px;
+  font-size: 22px;
+}
+
+.touch-btn.pressed { background: rgba(255,255,255,0.4); transform: scale(0.93); }
+.touch-btn.active { background: rgba(90,160,90,0.6); border-color: #8f8; }
+
+/* Position the right-side action buttons in a diamond */
+#btn-jump  { right: 0;    bottom: 14px; }
+#btn-break { right: 84px; bottom: 64px; width: 80px; height: 80px; font-size: 32px; background: rgba(120,40,40,0.4); }
+#btn-place { right: 8px;  bottom: 104px; }
+#btn-fly-up{ right: 96px; bottom: 0; }
+
+/* When mobile, nudge hotbar up a touch & make slots bigger targets */
+body.is-mobile #hotbar { bottom: 6px; }
+body.is-mobile .hotbar-slot { width: 44px; height: 44px; }
+body.is-mobile #time-display { font-size: 11px; }
+
+/* Hide the desktop "click to play" hint text on mobile title */
+body.is-mobile #controls-hint { display: none; }

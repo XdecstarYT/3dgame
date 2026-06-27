@@ -108,8 +108,8 @@ class World {
               if (gravelN > 0.85 && y < 40)      data[idx] = BLOCK.GRAVEL;
             }
 
-            // Cave carving
-            if (y > 5 && y < height - 1 && this.isCave(wx, y, wz)) {
+            // Cave carving (kept below the surface so the ground stays intact)
+            if (y > 8 && y < height - 4 && this.isCave(wx, y, wz)) {
               data[idx] = BLOCK.AIR;
             }
           } else if (y <= SEA_LEVEL && biome !== 'desert') {
