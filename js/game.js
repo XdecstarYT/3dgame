@@ -21,6 +21,9 @@ class Game {
     this.maxHunger = 20;
     this.hungerTimer = 0;
     this.naturalRegenTimer = 0;
+    this._invuln = 0;
+    this._autosave = 0;
+    this._loaded = false;
 
     this.material = null;
     this.waterMaterial = null;
@@ -51,8 +54,17 @@ class Game {
     // Auto-detect & init touch controls
     if (typeof MobileControls !== 'undefined') MobileControls.init();
 
+    // Continue from a saved world if one exists
+    if (typeof SaveManager !== 'undefined' && SaveManager.has()) {
+      this._loaded = SaveManager.load(this);
+      if (this._loaded) UI.addChatMessage('Loaded saved world', 'System');
+    }
+
     // Pre-generate chunks around spawn
     this._pregenerate();
+
+    // Autosave on tab close
+    window.addEventListener('beforeunload', () => { try { SaveManager.save(this); } catch (e) {} });
 
     // Start game loop
     requestAnimationFrame(t => this._loop(t));
@@ -90,28 +102,10 @@ class Game {
     texture.flipY = false;          // match our row-from-top atlas UV convention
     texture.generateMipmaps = false;
 
-    // alphaTest cuts out transparent texels (leaf holes, flowers, glass center, torch)
-    // DoubleSide so cross-model plants & leaf faces are visible from both directions.
-    this.material = new THREE.MeshLambertMaterial({
-      map: texture,
-      side: THREE.DoubleSide,
-      alphaTest: 0.5,
-    });
-
-    // Water material (semi-transparent)
-    const waterTexture = new THREE.CanvasTexture(atlasCanvas);
-    waterTexture.magFilter = THREE.NearestFilter;
-    waterTexture.minFilter = THREE.NearestFilter;
-    waterTexture.flipY = false;
-    waterTexture.generateMipmaps = false;
-
-    this.waterMaterial = new THREE.MeshLambertMaterial({
-      map: waterTexture,
-      transparent: true,
-      opacity: 0.72,
-      side: THREE.DoubleSide,
-      depthWrite: false,
-    });
+    // Custom voxel shader with baked sky/block light + AO (see shaders.js).
+    // alphaTest-style cutout handled in the fragment shader for leaves/plants/glass.
+    this.material = Shaders.makeTerrain(texture);
+    this.waterMaterial = Shaders.makeWater(texture);
 
     // Texture for dropped items
     const dropTex = new THREE.CanvasTexture(atlasCanvas);
@@ -201,7 +195,16 @@ class Game {
     });
 
     document.getElementById('btn-quit')?.addEventListener('click', () => {
-      if (confirm('Quit to title?')) location.reload();
+      if (confirm('Quit to title?')) { SaveManager.save(this); location.reload(); }
+    });
+
+    document.getElementById('btn-save')?.addEventListener('click', () => {
+      const ok = SaveManager.save(this);
+      UI.addChatMessage(ok ? 'World saved' : 'Save failed', 'System');
+    });
+
+    document.getElementById('btn-newworld')?.addEventListener('click', () => {
+      if (confirm('Delete the saved world and start a NEW one?')) { SaveManager.clear(); location.reload(); }
     });
 
     document.getElementById('btn-respawn')?.addEventListener('click', () => {
@@ -233,8 +236,8 @@ class Game {
         this.world.getOrCreateChunk(cx + dx, cz + dz);
       }
     }
-    // Ensure player is above terrain
-    this.player.respawn();
+    // Ensure player is above terrain (unless we loaded a saved position)
+    if (!this._loaded) this.player.respawn();
   }
 
   _loop(timestamp) {
@@ -259,10 +262,17 @@ class Game {
     // Update world (chunk loading)
     this.world.update(this.player.position.x, this.player.position.z);
 
+    // Combat targeting: which mob is under the crosshair (so break defers to melee)
+    this.player.meleeTarget = this.entities ? this.entities.getTargetMob(this.player) : null;
+
     // Update player
     if (this.player.active()) {
       this.player.update(dt, this.world, this.inventory);
     }
+
+    // Execute melee attacks
+    if (this._invuln > 0) this._invuln -= dt;
+    this._updateCombat(dt);
 
     // Held item in hand + swing/bob (after camera is positioned by player)
     if (this.handView) {
@@ -286,10 +296,19 @@ class Game {
       this._updateSurvival(dt);
     }
 
+    // Autosave roughly every 30s
+    this._autosave += dt;
+    if (this._autosave > 30) { this._autosave = 0; if (typeof SaveManager !== 'undefined') SaveManager.save(this); }
+
     // Update sky
     const fogColor = this.sky.update(this.timeOfDay, this.player.position);
     this.scene.fog.color.copy(fogColor);
     this.renderer.setClearColor(fogColor, 1);
+
+    // Drive the voxel shader's day/night + fog (no mesh rebuilds needed)
+    const sunY = Math.sin(this.timeOfDay * Math.PI * 2);
+    const day = sunY > 0 ? 0.18 + 0.82 * Math.min(1, sunY * 1.4) : 0.12;
+    Shaders.update(day, fogColor, this.scene.fog.near, this.scene.fog.far);
 
     // Update entities
     this.entities.update(dt, this.player);
@@ -319,6 +338,37 @@ class Game {
       const back = this.player.getLookDir().multiplyScalar(-5);
       this.camera.position.add(back);
     }
+  }
+
+  _updateCombat(dt) {
+    if (this.player.attackCd > 0) this.player.attackCd -= dt;
+    const m = (typeof MobileControls !== 'undefined') ? MobileControls.state : null;
+    const wantAttack = this.player.mouseButtons[0] || (m && m.enabled && m.flags.breaking);
+    const target = this.player.meleeTarget;
+    if (wantAttack && target && !target.dead && this.player.attackCd <= 0) {
+      this.player.attackCd = 0.5;
+      const held = (this.inventory.getSelectedItem() || {}).id || 0;
+      target.takeDamage(getAttackDamage(held), this.player.position);
+      if (this.handView) this.handView.triggerSwing();
+    }
+  }
+
+  hurtPlayer(amount, fromPos) {
+    if (this.player.creative || amount <= 0 || this._invuln > 0 || this.health <= 0) return;
+    this.health -= amount;
+    this._invuln = 0.5;
+    AudioManager.playSound('player_hurt');
+    UI.updateHealth(this.health, this.maxHealth);
+    if (fromPos) {
+      const dx = this.player.position.x - fromPos.x, dz = this.player.position.z - fromPos.z;
+      const d = Math.hypot(dx, dz) || 1;
+      this.player.velocity.x += (dx / d) * 6;
+      this.player.velocity.z += (dz / d) * 6;
+      this.player.velocity.y = Math.max(this.player.velocity.y, 4);
+    }
+    const o = document.getElementById('damage-overlay');
+    if (o) { o.style.opacity = '0.45'; setTimeout(() => { o.style.opacity = '0'; }, 150); }
+    if (this.health <= 0) { this.health = 0; document.exitPointerLock(); UI.showDeath(); }
   }
 
   _updateSurvival(dt) {

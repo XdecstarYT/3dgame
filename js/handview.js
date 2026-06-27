@@ -32,8 +32,8 @@ class HandView {
 
   _blockTexture(id) {
     if (this._texCache[id]) return this._texCache[id];
-    const def = BLOCK_DEF[id];
-    const tileIdx = def ? (def.textures[4] || def.textures[0]) : 0;
+    const def = getDef(id);
+    const tileIdx = def ? (def.isItem ? def.textures[0] : (def.textures[4] || def.textures[0])) : 0;
     const c = document.createElement('canvas'); c.width = 16; c.height = 16;
     const ctx = c.getContext('2d');
     if (window._atlasCanvas && tileIdx) {
@@ -53,13 +53,23 @@ class HandView {
     this.heldId = id;
     if (this.mesh) { this.group.remove(this.mesh); this.mesh.geometry.dispose(); this.mesh = null; }
 
-    if (id && id !== BLOCK.AIR && BLOCK_DEF[id]) {
+    const def = getDef(id);
+    if (id && id !== BLOCK.AIR && def) {
       const tex = this._blockTexture(id);
-      const mat = new THREE.MeshLambertMaterial({ map: tex, transparent: !!(BLOCK_DEF[id].transparent) });
-      const geo = new THREE.BoxGeometry(0.35, 0.35, 0.35);
-      this.mesh = new THREE.Mesh(geo, mat);
-      this.mesh.position.set(0.05, -0.1, 0);
-      this.mesh.rotation.set(0.3, -0.6, 0);
+      if (def.isItem) {
+        // Tools/items: held as an angled flat sprite
+        const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide });
+        const geo = new THREE.PlaneGeometry(0.4, 0.4);
+        this.mesh = new THREE.Mesh(geo, mat);
+        this.mesh.position.set(0.05, -0.05, 0);
+        this.mesh.rotation.set(0, -0.4, -0.5);
+      } else {
+        const mat = new THREE.MeshLambertMaterial({ map: tex, transparent: !!def.transparent, alphaTest: def.transparent ? 0.5 : 0 });
+        const geo = new THREE.BoxGeometry(0.35, 0.35, 0.35);
+        this.mesh = new THREE.Mesh(geo, mat);
+        this.mesh.position.set(0.05, -0.1, 0);
+        this.mesh.rotation.set(0.3, -0.6, 0);
+      }
       this.group.add(this.mesh);
       this.arm.visible = false;
     } else {

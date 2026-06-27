@@ -4,7 +4,7 @@
 const TextureAtlas = (() => {
   const TILE = 16;       // pixels per tile
   const COLS = 8;        // tiles per row in atlas
-  const TOTAL_TILES = 40;
+  const TOTAL_TILES = 51;
   const ROWS = Math.ceil(TOTAL_TILES / COLS);
   const ATLAS_W = TILE * COLS;
   const ATLAS_H = TILE * ROWS;
@@ -444,6 +444,86 @@ const TextureAtlas = (() => {
 
   function drawTNTBottom(ctx, size) { solidColor(ctx, size, 200, 200, 200, 72, 20); }
 
+  // ---------- item icons ----------
+  function clear(ctx, size) { ctx.clearRect(0, 0, size, size); }
+
+  function drawStick(ctx, s) {
+    clear(ctx, s);
+    ctx.fillStyle = '#7a5230';
+    for (let i = 0; i < 9; i++) ctx.fillRect(10 - i, 3 + i, 2, 2);
+  }
+  function drawCoal(ctx, s) {
+    clear(ctx, s);
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillRect(4, 5, 8, 7); ctx.fillRect(5, 4, 6, 1); ctx.fillRect(3, 7, 1, 3);
+    ctx.fillStyle = '#3a3a3a';
+    ctx.fillRect(6, 6, 2, 2); ctx.fillRect(9, 8, 2, 2);
+  }
+  function drawIngot(ctx, s, r, g, b) {
+    clear(ctx, s);
+    ctx.fillStyle = `rgb(${r},${g},${b})`;
+    ctx.beginPath();
+    ctx.moveTo(4, 11); ctx.lineTo(6, 5); ctx.lineTo(12, 5); ctx.lineTo(11, 11); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = `rgba(255,255,255,0.4)`;
+    ctx.fillRect(6, 6, 5, 1);
+    ctx.fillStyle = `rgba(0,0,0,0.25)`;
+    ctx.fillRect(5, 10, 6, 1);
+  }
+  function drawDiamond(ctx, s) {
+    clear(ctx, s);
+    ctx.fillStyle = '#3fe0e0';
+    ctx.beginPath();
+    ctx.moveTo(8, 3); ctx.lineTo(13, 7); ctx.lineTo(8, 13); ctx.lineTo(3, 7); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.6)';
+    ctx.fillRect(7, 5, 2, 2);
+    ctx.fillStyle = 'rgba(0,80,120,0.4)';
+    ctx.fillRect(6, 9, 4, 2);
+  }
+  function drawApple(ctx, s) {
+    clear(ctx, s);
+    ctx.fillStyle = '#cc2222';
+    ctx.beginPath(); ctx.arc(8, 9, 5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#7a4a10'; ctx.fillRect(8, 3, 1, 3);
+    ctx.fillStyle = '#2a8a2a'; ctx.fillRect(9, 4, 3, 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.fillRect(6, 7, 2, 2);
+  }
+  function drawBread(ctx, s) {
+    clear(ctx, s);
+    ctx.fillStyle = '#c08a40';
+    ctx.beginPath(); ctx.ellipse(8, 8, 6, 4, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#a06a28';
+    ctx.fillRect(5, 7, 1, 2); ctx.fillRect(8, 6, 1, 2); ctx.fillRect(11, 7, 1, 2);
+  }
+  function drawHandle(ctx) {
+    ctx.fillStyle = '#7a5230';
+    for (let i = 0; i < 8; i++) ctx.fillRect(5 + i, 12 - i, 2, 2);
+  }
+  function drawPickaxe(ctx, s) {
+    clear(ctx, s); drawHandle(ctx);
+    ctx.fillStyle = '#9aa0a6';
+    ctx.fillRect(3, 3, 10, 2); ctx.fillRect(3, 3, 2, 2); ctx.fillRect(11, 3, 2, 2);
+    ctx.fillRect(2, 4, 2, 2); ctx.fillRect(12, 4, 2, 2);
+  }
+  function drawAxe(ctx, s) {
+    clear(ctx, s); drawHandle(ctx);
+    ctx.fillStyle = '#9aa0a6';
+    ctx.fillRect(8, 3, 4, 6); ctx.fillRect(6, 4, 2, 4);
+  }
+  function drawShovel(ctx, s) {
+    clear(ctx, s); drawHandle(ctx);
+    ctx.fillStyle = '#9aa0a6';
+    ctx.fillRect(9, 3, 4, 4); ctx.fillRect(10, 7, 2, 1);
+  }
+  function drawSword(ctx, s) {
+    clear(ctx, s);
+    ctx.fillStyle = '#7a5230';
+    ctx.fillRect(4, 11, 4, 2); ctx.fillRect(6, 9, 3, 3);
+    ctx.fillStyle = '#caa030'; // guard
+    ctx.fillRect(7, 8, 4, 2);
+    ctx.fillStyle = '#d8dde2'; // blade
+    for (let i = 0; i < 7; i++) ctx.fillRect(9 + i, 7 - i, 2, 2);
+  }
+
   function generateAtlas() {
     const canvas = document.createElement('canvas');
     canvas.width = ATLAS_W;
@@ -530,6 +610,19 @@ const TextureAtlas = (() => {
     drawTile(ctx, 38, drawTNTBottom);
     // tile 39: tnt side
     drawTile(ctx, 39, drawTNTSide);
+
+    // ---- item icons ----
+    drawTile(ctx, 40, drawStick);
+    drawTile(ctx, 41, drawCoal);
+    drawTile(ctx, 42, (c, s) => drawIngot(c, s, 210, 210, 215)); // iron
+    drawTile(ctx, 43, (c, s) => drawIngot(c, s, 235, 205, 60));  // gold
+    drawTile(ctx, 44, drawDiamond);
+    drawTile(ctx, 45, drawApple);
+    drawTile(ctx, 46, drawBread);
+    drawTile(ctx, 47, drawPickaxe);
+    drawTile(ctx, 48, drawAxe);
+    drawTile(ctx, 49, drawShovel);
+    drawTile(ctx, 50, drawSword);
 
     return { canvas, TILE, COLS, ROWS, ATLAS_W, ATLAS_H };
   }

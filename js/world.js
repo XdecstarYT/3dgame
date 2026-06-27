@@ -5,18 +5,31 @@ const SEA_LEVEL = 62;
 const WORLD_SEED = Math.random() * 10000 | 0;
 
 class World {
-  constructor(scene, material, waterMaterial) {
+  constructor(scene, material, waterMaterial, seed) {
     this.scene = scene;
     this.material = material;
     this.waterMaterial = waterMaterial;
     this.chunks = new Map();
     this.pendingMesh = [];
+    this.seed = (seed !== undefined && seed !== null) ? seed : WORLD_SEED;
+    this._initNoise();
+  }
 
-    this.heightNoise = new SimplexNoise(WORLD_SEED);
-    this.biomeNoise = new SimplexNoise(WORLD_SEED + 1);
-    this.caveNoise = new SimplexNoise(WORLD_SEED + 2);
-    this.detailNoise = new SimplexNoise(WORLD_SEED + 3);
-    this.treeNoise = new SimplexNoise(WORLD_SEED + 4);
+  _initNoise() {
+    const s = this.seed;
+    this.heightNoise = new SimplexNoise(s);
+    this.biomeNoise = new SimplexNoise(s + 1);
+    this.caveNoise = new SimplexNoise(s + 2);
+    this.detailNoise = new SimplexNoise(s + 3);
+    this.treeNoise = new SimplexNoise(s + 4);
+  }
+
+  // Re-seed and drop all loaded chunks (used when loading a save)
+  setSeed(seed) {
+    this.seed = seed;
+    this._initNoise();
+    for (const [, chunk] of this.chunks) chunk.dispose(this.scene);
+    this.chunks.clear();
   }
 
   key(cx, cz) { return `${cx},${cz}`; }
@@ -129,7 +142,7 @@ class World {
 
   generateFeatures(chunk) {
     const { cx, cz } = chunk;
-    const treeRng = new SimplexNoise(WORLD_SEED + cx * 1000 + cz);
+    const treeRng = new SimplexNoise(this.seed + cx * 1000 + cz);
 
     for (let lx = 0; lx < CHUNK_W; lx++) {
       for (let lz = 0; lz < CHUNK_D; lz++) {
@@ -218,12 +231,28 @@ class World {
     const lx = ((wx % CHUNK_W) + CHUNK_W) % CHUNK_W;
     const lz = ((wz % CHUNK_D) + CHUNK_D) % CHUNK_D;
     chunk.setBlock(lx, wy, lz, id);
+    chunk.modified = true;
 
-    // Mark neighboring chunks dirty if on border
-    if (lx === 0)        { const nc = this.getChunk(cx-1, cz); if (nc) nc.dirty = true; }
-    if (lx === CHUNK_W-1){ const nc = this.getChunk(cx+1, cz); if (nc) nc.dirty = true; }
-    if (lz === 0)        { const nc = this.getChunk(cx, cz-1); if (nc) nc.dirty = true; }
-    if (lz === CHUNK_D-1){ const nc = this.getChunk(cx, cz+1); if (nc) nc.dirty = true; }
+    // Mark cardinal neighbours dirty too so cross-chunk lighting (torches, opened
+    // skylight) re-bakes correctly, not just geometry at the seams.
+    const n1 = this.getChunk(cx-1, cz); if (n1) n1.dirty = true;
+    const n2 = this.getChunk(cx+1, cz); if (n2) n2.dirty = true;
+    const n3 = this.getChunk(cx, cz-1); if (n3) n3.dirty = true;
+    const n4 = this.getChunk(cx, cz+1); if (n4) n4.dirty = true;
+  }
+
+  // Returns [skyLight(0..15), blockLight(0..15)] at world coords.
+  getLightWorld(wx, wy, wz) {
+    if (wy < 0) return SAMPLE_DARK;
+    if (wy >= CHUNK_H) return SAMPLE_SKY;
+    const cx = Math.floor(wx / CHUNK_W);
+    const cz = Math.floor(wz / CHUNK_D);
+    const chunk = this.getChunk(cx, cz);
+    if (!chunk || !chunk.skyLight) return SAMPLE_SKY;
+    const lx = ((wx % CHUNK_W) + CHUNK_W) % CHUNK_W;
+    const lz = ((wz % CHUNK_D) + CHUNK_D) % CHUNK_D;
+    const i = chunk.blockIndex(lx, wy, lz);
+    return [chunk.skyLight[i], chunk.blockLight[i]];
   }
 
   update(playerX, playerZ) {

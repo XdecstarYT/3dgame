@@ -60,10 +60,10 @@ class Inventory {
   }
 
   addItem(id, count) {
-    if (id === BLOCK.AIR) return;
-    const def = BLOCK_DEF[id];
+    if (!id || id === BLOCK.AIR) return;
+    const def = getDef(id);
     if (!def) return;
-    const maxStack = def.stackSize || 64;
+    const maxStack = getStackSize(id);
 
     // Try to stack in hotbar first
     for (const slot of this.hotbar) {

@@ -14,6 +14,9 @@
 <!-- Water tint overlay (when underwater) -->
 <div id="water-overlay"></div>
 
+<!-- Red damage flash overlay -->
+<div id="damage-overlay"></div>
+
 <!-- Vignette -->
 <div id="vignette"></div>
 
@@ -61,8 +64,10 @@
 <div id="pause-menu">
   <h1>Game Paused</h1>
   <button class="menu-btn primary" id="btn-resume">&#9654; Back to Game</button>
+  <button class="menu-btn" id="btn-save">&#128190; Save World</button>
+  <button class="menu-btn" id="btn-newworld">&#10024; New World</button>
   <button class="menu-btn" id="btn-options">Options...</button>
-  <button class="menu-btn" id="btn-quit" style="color:#ff8888;">Quit Game</button>
+  <button class="menu-btn" id="btn-quit" style="color:#ff8888;">Save &amp; Quit</button>
 </div>
 
 <!-- ==================== HUD ==================== -->
@@ -189,6 +194,7 @@
 <script src="js/noise.js"></script>
 <script src="js/blocks.js"></script>
 <script src="js/textures.js"></script>
+<script src="js/shaders.js"></script>
 <script src="js/chunk.js"></script>
 <script src="js/world.js"></script>
 <script src="js/player.js"></script>
@@ -201,6 +207,7 @@
 <script src="js/particles.js"></script>
 <script src="js/handview.js"></script>
 <script src="js/mobile.js"></script>
+<script src="js/save.js"></script>
 <script src="js/game.js"></script>
 
 <!-- Creative inventory builder + hotbar in inventory -->
@@ -212,9 +219,9 @@ window.addEventListener('load', () => {
       const grid = document.getElementById('creative-grid');
       if (!grid) return;
       grid.innerHTML = '';
-      const allBlocks = Object.entries(BLOCK).filter(([, id]) => id !== BLOCK.AIR);
-      allBlocks.forEach(([name, id]) => {
-        const def = BLOCK_DEF[id];
+
+      const addEntry = (id, count) => {
+        const def = getDef(id);
         if (!def || def.stackSize === 0) return;
         const slot = document.createElement('div');
         slot.className = 'inv-slot';
@@ -223,18 +230,21 @@ window.addEventListener('load', () => {
         slot.innerHTML = `<canvas class="item-icon" width="32" height="32"></canvas>`;
         slot.addEventListener('click', () => {
           if (window._game) {
-            window._game.inventory.addItem(id, 64);
+            window._game.inventory.addItem(id, count);
             UI.updateHotbar(window._game.inventory);
             AudioManager.playSound('item_pickup');
           }
         });
         grid.appendChild(slot);
-        // Draw icon
         setTimeout(() => {
           const canvas = slot.querySelector('.item-icon');
           if (canvas && window._atlasCanvas) UI.drawItemIcon(canvas, id);
         }, 500);
-      });
+      };
+
+      // Blocks first, then items/tools
+      Object.entries(BLOCK).filter(([, id]) => id !== BLOCK.AIR).forEach(([, id]) => addEntry(id, 64));
+      Object.values(ITEM).forEach(id => addEntry(id, getDef(id) && getDef(id).tool ? 1 : 64));
 
       // Build hotbar row inside inventory
       const hotbarRow = document.getElementById('inv-hotbar-row');

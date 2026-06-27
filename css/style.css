@@ -341,6 +341,17 @@ canvas#canvas {
   50% { opacity: 0.55; }
 }
 
+/* Damage flash */
+#damage-overlay {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(ellipse at center, rgba(180,0,0,0) 35%, rgba(180,0,0,0.7) 100%);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease-out;
+  z-index: 6;
+}
+
 /* ==================== INVENTORY ==================== */
 
 #inventory {

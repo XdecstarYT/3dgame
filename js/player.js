@@ -46,6 +46,8 @@ class Player {
     this.placeCooldown = 0;
 
     this.currentTarget = null;
+    this.meleeTarget = null;
+    this.attackCd = 0;
     this.highlightMesh = this._createHighlight();
 
     this._setupControls();
@@ -299,10 +301,11 @@ class Player {
       }
     }
 
-    // BREAK
-    let wantBreak = this.mouseButtons[0] || (m && m.enabled && m.flags.breaking);
+    // BREAK (skipped while a mob is targeted so left-click does melee instead)
+    let wantBreak = (this.mouseButtons[0] || (m && m.enabled && m.flags.breaking)) && !this.meleeTarget;
     if (wantBreak && result.hit) {
       const { x, y, z, id } = result.block;
+      const heldId = (inventory.getSelectedItem() || {}).id || 0;
       const same = this.breakTarget && this.breakTarget.x === x && this.breakTarget.y === y && this.breakTarget.z === z;
       if (!same) { this.breakProgress = 0; this.breakTarget = { x, y, z }; }
 
@@ -314,7 +317,8 @@ class Player {
 
       const hardness = getHardness(id);
       if (hardness === Infinity) return;
-      const breakTime = this.creative ? 0 : Math.max(0.05, hardness * 0.3);
+      const mult = getMiningMultiplier(id, heldId);
+      const breakTime = this.creative ? 0 : Math.max(0.05, (hardness * 0.45) / mult);
       this.breakProgress += dt;
 
       // break particles trickle
@@ -327,10 +331,11 @@ class Player {
       if (this.breakProgress >= breakTime) {
         if (window._game && window._game.particles) {
           window._game.particles.spawnBreak(x, y, z, id);
-          const drop = getDrop(id);
-          if (drop !== null && drop !== BLOCK.AIR) {
-            if (this.creative) { /* no drop in creative */ }
-            else window._game.particles.spawnDrop(x, y, z, drop, world);
+          if (!this.creative) {
+            const drop = getDrop(id);
+            if (drop !== null && drop !== BLOCK.AIR && blockWillDrop(id, heldId)) {
+              window._game.particles.spawnDrop(x, y, z, drop, world);
+            }
           }
         }
         world.setBlock(x, y, z, BLOCK.AIR);

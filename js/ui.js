@@ -170,11 +170,12 @@ const UI = (() => {
     ctx.clearRect(0, 0, 32, 32);
     if (!id || id === BLOCK.AIR) return;
 
-    const def = BLOCK_DEF[id];
+    const def = getDef(id);
     if (!def) return;
 
-    // Draw the top texture as icon
-    const tileIdx = def.textures[0] || def.textures[2] || 0;
+    // Draw the representative texture as icon (top for blocks, sprite for items)
+    let tileIdx = def.textures[0];
+    if (!def.isItem) tileIdx = def.textures[0] || def.textures[2] || 0;
     if (!tileIdx) return;
 
     const atlas = window._atlasCanvas;
